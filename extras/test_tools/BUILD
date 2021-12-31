@@ -1,0 +1,32 @@
+# Libraries intended to simplify the task of writing tests of McuNet.
+
+cc_library(
+    name = "fake_platform_ethernet",
+    hdrs = ["fake_platform_ethernet.h"],
+    deps = ["//mcunet/src:platform_ethernet"],
+)
+
+cc_library(
+    name = "mock_socket_listener",
+    hdrs = ["mock_socket_listener.h"],
+    deps = [
+        "//googletest:gunit_headers",
+        "//mcunet/src:connection",
+        "//mcunet/src:socket_listener",
+    ],
+)
+
+cc_library(
+    name = "string_io_connection",
+    hdrs = ["string_io_connection.h"],
+    deps = ["//mcunet/src:connection"],
+)
+
+cc_test(
+    name = "string_io_connection_test",
+    srcs = ["string_io_connection_test.cc"],
+    deps = [
+        ":string_io_connection",
+        "//googletest:gunit_main",
+    ],
+)
