@@ -10,7 +10,6 @@
 
 #include "ip_device.h"
 
-#include "inline_literal.h"
 #include "logging.h"
 #include "platform_ethernet.h"
 #include "progmem_string_data.h"

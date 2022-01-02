@@ -8,7 +8,6 @@ cc_library(
         ":platform_ethernet",
         "//mcucore/src:eeprom_io",
         "//mcucore/src:hex_escape",
-        "//mcucore/src:inline_literal",
         "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
         "//mcucore/src:o_print_stream",
@@ -33,7 +32,6 @@ cc_library(
     deps = [
         ":addresses",
         ":platform_ethernet",
-        "//mcucore/src:inline_literal",
         "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
         "//mcucore/src:progmem_string_data",

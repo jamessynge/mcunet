@@ -1,7 +1,6 @@
 #include "addresses.h"
 
 #include "hex_escape.h"
-#include "inline_literal.h"
 #include "logging.h"
 #include "o_print_stream.h"
 #include "progmem_string_data.h"
