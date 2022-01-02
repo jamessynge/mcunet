@@ -4,6 +4,7 @@
 #include "logging.h"
 #include "o_print_stream.h"
 #include "progmem_string_data.h"
+#include "progmem_string_view.h"
 
 namespace mcunet {
 namespace {
@@ -11,8 +12,8 @@ namespace {
 // value (e.g. between "addrs" and "Addrs") has the effect of invalidating the
 // currently stored values, which can be useful if you want to change the
 // OuiPrefix, or to debug this code.
-// TODO(jamessynge): Stop wasting RAM on this string.
-const char kName[] = "addrs";
+
+inline mcucore::ProgmemStringView Name() { return MCU_PSV("addrs"); }
 
 // A link-local address is in the range 169.254.1.0 to 169.254.254.255,
 // inclusive. Learn more: https://tools.ietf.org/html/rfc3927
@@ -185,9 +186,9 @@ void Addresses::loadOrGenAndSave(const OuiPrefix* oui_prefix) {
 }
 
 void Addresses::save() const {
-  MCU_VLOG(3) << MCU_FLASHSTR("Saving ") << kName;
+  MCU_VLOG(3) << MCU_FLASHSTR("Saving ") << Name();
 
-  int ipAddress = mcucore::eeprom_io::SaveName(0, kName);
+  int ipAddress = mcucore::eeprom_io::SaveName(0, Name());
   mcucore::Crc32 crc;
   int macAddress = ip.save(ipAddress, &crc);
   int crcAddress = mac.save(macAddress, &crc);
@@ -196,7 +197,7 @@ void Addresses::save() const {
 
 bool Addresses::load(const OuiPrefix* oui_prefix) {
   int ipAddress;
-  if (!mcucore::eeprom_io::VerifyName(0, kName, &ipAddress)) {
+  if (!mcucore::eeprom_io::VerifyName(0, Name(), &ipAddress)) {
     MCU_VLOG(2) << MCU_FLASHSTR("Stored name mismatch");
     return false;
   }
@@ -227,7 +228,7 @@ void Addresses::println(const char* prefix) const {
 }
 
 size_t Addresses::printTo(Print& p) const {
-  size_t result = p.print(kName);
+  size_t result = Name().printTo(p);
   result += p.print(MCU_FLASHSTR(": MAC="));
   result += p.print(mac);
   result += p.print(MCU_FLASHSTR(", IP="));

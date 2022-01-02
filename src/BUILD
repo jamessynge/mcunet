@@ -12,6 +12,7 @@ cc_library(
         "//mcucore/src:mcucore_platform",
         "//mcucore/src:o_print_stream",
         "//mcucore/src:progmem_string_data",
+        "//mcucore/src:progmem_string_view",
     ],
 )
 
