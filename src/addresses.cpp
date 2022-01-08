@@ -1,5 +1,6 @@
 #include "addresses.h"
 
+#include "eeprom_io.h"
 #include "hex_escape.h"
 #include "logging.h"
 #include "o_print_stream.h"
@@ -192,7 +193,7 @@ void Addresses::save() const {
   mcucore::Crc32 crc;
   int macAddress = ip.save(ipAddress, &crc);
   int crcAddress = mac.save(macAddress, &crc);
-  crc.put(crcAddress);
+  mcucore::eeprom_io::PutCrc(crcAddress, crc);
 }
 
 bool Addresses::load(const OuiPrefix* oui_prefix) {
@@ -204,7 +205,7 @@ bool Addresses::load(const OuiPrefix* oui_prefix) {
   mcucore::Crc32 crc;
   int macAddress = ip.read(ipAddress, &crc);
   int crcAddress = mac.read(macAddress, &crc);
-  if (!crc.verify(crcAddress)) {
+  if (!mcucore::eeprom_io::VerifyCrc(crcAddress, crc)) {
     MCU_VLOG(2) << MCU_FLASHSTR("Stored crc mismatch");
     return false;
   }
