@@ -1,6 +1,7 @@
 #include "connection.h"
 
 #include "logging.h"
+#include "o_print_stream.h"
 
 namespace mcunet {
 
@@ -64,8 +65,10 @@ size_t WriteBufferedWrappedClientConnection::write(uint8_t b) {
 size_t WriteBufferedWrappedClientConnection::write(const uint8_t *buf,
                                                    const size_t size) {
   // buf should not overlap with write_buffer_.
-  MCU_DCHECK_LE(buf + size, write_buffer_);
-  MCU_DCHECK_LE(write_buffer_ + write_buffer_limit_, buf);
+  MCU_DCHECK((buf + size <= write_buffer_) ^
+             (write_buffer_ + write_buffer_limit_ <= buf))
+      << mcucore::BaseHex << buf << ' ' << size << ' ' << write_buffer_ << ' '
+      << write_buffer_limit_;
 
   // NOTE: Avoiding checking for hasWriteError, and leaving that up to
   // a caller. Also avoiding optimizing for long strings, just appending

@@ -23,6 +23,7 @@ cc_library(
     deps = [
         ":platform_ethernet",
         "//mcucore/src:logging",
+        "//mcucore/src:o_print_stream",
     ],
 )
 
