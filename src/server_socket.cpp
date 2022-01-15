@@ -144,6 +144,9 @@ bool ServerSocket::BeginListening() {
     return false;
   } else if (PlatformEthernet::SocketIsTcpListener(sock_num_, tcp_port_)) {
     // Already listening.
+    MCU_VLOG(1) << MCU_FLASHSTR("Already listening, last_status_ is ")
+                << mcucore::BaseHex << last_status_;
+    last_status_ = PlatformEthernet::SocketStatus(sock_num_);
     return true;
   } else if (IsConnected()) {
     return false;
