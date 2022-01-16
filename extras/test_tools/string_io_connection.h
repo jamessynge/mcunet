@@ -1,8 +1,10 @@
 #ifndef MCUNET_EXTRAS_TEST_TOOLS_STRING_IO_CONNECTION_H_
 #define MCUNET_EXTRAS_TEST_TOOLS_STRING_IO_CONNECTION_H_
 
-// Implements mcunet::Connection for testing, reading from a string_view,
-// writing to a string.
+// Implements Connection for testing usages of Connection; reads from a
+// std::string_view, and writes to a std::string.
+//
+// Author: james.synge@gmail.com
 
 #include <stddef.h>
 #include <stdint.h>
