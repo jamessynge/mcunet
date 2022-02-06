@@ -1,11 +1,10 @@
-# TODO(jamessynge): describe this package.
-
 cc_library(
     name = "addresses",
     srcs = ["addresses.cc"],
     hdrs = ["addresses.h"],
     deps = [
         ":platform_ethernet",
+        "//mcucore/src:crc32",
         "//mcucore/src:eeprom_io",
         "//mcucore/src:hex_escape",
         "//mcucore/src:logging",
@@ -23,7 +22,6 @@ cc_library(
     deps = [
         ":platform_ethernet",
         "//mcucore/src:logging",
-        "//mcucore/src:o_print_stream",
     ],
 )
 
@@ -34,6 +32,7 @@ cc_library(
     deps = [
         ":addresses",
         ":platform_ethernet",
+        "//mcucore/src:log_sink",
         "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
         "//mcucore/src:progmem_string_data",

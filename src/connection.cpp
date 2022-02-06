@@ -1,7 +1,8 @@
 #include "connection.h"
 
+#include <string.h>
+
 #include "logging.h"
-#include "o_print_stream.h"
 
 namespace mcunet {
 

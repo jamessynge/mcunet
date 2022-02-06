@@ -5,7 +5,7 @@
 //
 // Author: james.synge@gmail.com
 
-#include "eeprom_io.h"
+#include "crc32.h"
 #include "mcucore_platform.h"
 #include "platform_ethernet.h"
 

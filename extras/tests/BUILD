@@ -1,5 +1,3 @@
-# TODO(jamessynge): describe this package.
-
 cc_test(
     name = "server_socket_test",
     srcs = ["server_socket_test.cc"],
