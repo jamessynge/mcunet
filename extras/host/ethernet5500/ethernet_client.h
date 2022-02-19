@@ -3,8 +3,8 @@
 // Just enough of EthernetClient for Tiny Alpaca Server to compile on host,
 // maybe to be a TCP server.
 
+#include "extras/host/arduino/client.h"
 #include "extras/host/ethernet5500/ethernet_config.h"
-#include "mcucore/extras/host/arduino/client.h"
 
 class EthernetClient : public Client {
  public:

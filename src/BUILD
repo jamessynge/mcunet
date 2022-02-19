@@ -57,10 +57,10 @@ cc_library(
     srcs = ["platform_ethernet.cc"],
     hdrs = ["platform_ethernet.h"],
     deps = [
-        "//mcucore/extras/host/arduino:client",
-        "//mcucore/extras/host/arduino:ip_address",
         "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
+        "//mcunet/extras/host/arduino:client",
+        "//mcunet/extras/host/arduino:ip_address",
         "//mcunet/extras/host/ethernet5500",
         "//mcunet/extras/host/ethernet5500:host_sockets",
     ],

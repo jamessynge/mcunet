@@ -7,6 +7,16 @@ cc_library(
 )
 
 cc_library(
+    name = "mock_ethernet_client",
+    hdrs = ["mock_ethernet_client.h"],
+    deps = [
+        "//googletest:gunit_headers",
+        "//mcunet/extras/host/arduino:ip_address",
+        "//mcunet/extras/host/ethernet5500:ethernet_client",
+    ],
+)
+
+cc_library(
     name = "mock_socket_listener",
     hdrs = ["mock_socket_listener.h"],
     deps = [

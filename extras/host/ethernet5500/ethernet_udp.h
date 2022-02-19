@@ -2,9 +2,9 @@
 #define MCUNET_EXTRAS_HOST_ETHERNET5500_ETHERNET_UDP_H_
 // Incomplete declaration/implementation of Ethernet5500's EthernetUDP class.
 
+#include "extras/host/arduino/ip_address.h"
 #include "extras/host/ethernet5500/ethernet_client.h"
 #include "extras/host/ethernet5500/ethernet_config.h"
-#include "mcucore/extras/host/arduino/ip_address.h"
 #include "mcucore/extras/host/arduino/stream.h"
 
 class EthernetUDP : public Stream {
