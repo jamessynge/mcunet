@@ -1,6 +1,6 @@
 #include "platform_ethernet.h"
 
-#include "logging.h"
+#include <McuCore.h>
 
 namespace mcunet {
 #if MCU_HAS_PLATFORM_ETHERNET_INTERFACE

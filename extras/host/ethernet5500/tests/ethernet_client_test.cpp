@@ -2,7 +2,7 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "mcucore/extrastest_tools/print_to_std_string.h"
+#include "mcucore/extras/test_tools/print_to_std_string.h"
 
 namespace mcunet_host {
 namespace test {

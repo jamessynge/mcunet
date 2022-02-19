@@ -34,8 +34,9 @@
 //
 // Author: james.synge@gmail.com
 
+#include <McuCore.h>
+
 #include "connection.h"
-#include "mcucore_platform.h"
 #include "socket_listener.h"
 
 namespace mcunet {

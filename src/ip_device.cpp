@@ -10,10 +10,9 @@
 
 #include "ip_device.h"
 
-#include "log_sink.h"
-#include "logging.h"
+#include <McuCore.h>
+
 #include "platform_ethernet.h"
-#include "progmem_string_data.h"
 
 namespace mcunet {
 namespace {

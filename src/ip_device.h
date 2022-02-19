@@ -6,8 +6,9 @@
 //
 // Author: james.synge@gmail.com
 
+#include <McuCore.h>
+
 #include "addresses.h"
-#include "mcucore_platform.h"
 #include "platform_ethernet.h"
 
 namespace mcunet {

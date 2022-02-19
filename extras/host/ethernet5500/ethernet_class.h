@@ -4,10 +4,9 @@
 // Just enough of EthernetClass for Tiny Alpaca Server to compile on host, maybe
 // to be a TCP server.
 
-#include <IPAddress.h>  // IWYU pragma: export
-
 #include "extras/host/ethernet5500/dhcp_class.h"
 #include "extras/host/ethernet5500/ethernet_config.h"
+#include "mcucore/extras/host/arduino/ip_address.h"  // IWYU pragma: export
 
 #define DHCP_CHECK_NONE (0)
 #define DHCP_CHECK_RENEW_FAIL (1)

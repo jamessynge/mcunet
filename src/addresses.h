@@ -5,8 +5,8 @@
 //
 // Author: james.synge@gmail.com
 
-#include "crc32.h"
-#include "mcucore_platform.h"
+#include <McuCore.h>
+
 #include "platform_ethernet.h"
 
 namespace mcunet {

@@ -1,8 +1,7 @@
 #include "connection.h"
 
+#include <McuCore.h>
 #include <string.h>
-
-#include "logging.h"
 
 namespace mcunet {
 

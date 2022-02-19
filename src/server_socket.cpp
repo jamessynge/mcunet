@@ -1,9 +1,8 @@
 #include "server_socket.h"
 
+#include <McuCore.h>
+
 #include "connection.h"
-#include "logging.h"
-#include "mcucore_platform.h"
-#include "o_print_stream.h"
 #include "platform_ethernet.h"
 
 namespace mcunet {

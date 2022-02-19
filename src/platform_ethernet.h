@@ -5,7 +5,7 @@
 //
 // Author: james.synge@gmail.com
 
-#include "mcucore_platform.h"  // IWYU pragma: export
+#include <McuCore.h>  // IWYU pragma: export
 
 #ifdef ARDUINO
 
@@ -21,11 +21,10 @@
 
 #elif MCU_HOST_TARGET
 
-#include <Client.h>        // IWYU pragma : export
-#include <Ethernet5500.h>  // IWYU pragma: export
-#include <IPAddress.h>     // IWYU pragma : export
-
-#include "extras/host/ethernet5500/host_sockets.h"  // IWYU pragma: export
+#include "extras/host/ethernet5500/ethernet5500.h"   // IWYU pragma: export
+#include "extras/host/ethernet5500/host_sockets.h"   // IWYU pragma: export
+#include "mcucore/extras/host/arduino/client.h"      // IWYU pragma : export
+#include "mcucore/extras/host/arduino/ip_address.h"  // IWYU pragma : export
 
 #endif  // ARDUINO
 
