@@ -1,5 +1,6 @@
 #ifndef MCUNET_EXTRAS_HOST_ETHERNET5500_ETHERNET_CLIENT_H_
 #define MCUNET_EXTRAS_HOST_ETHERNET5500_ETHERNET_CLIENT_H_
+
 // Just enough of EthernetClient for Tiny Alpaca Server to compile on host,
 // maybe to be a TCP server.
 

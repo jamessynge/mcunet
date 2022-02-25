@@ -10,8 +10,12 @@
 #include "gmock/gmock.h"
 #include "mcucore/extras/test_tools/mock_stream.h"
 
+// Even though Client is in the root namespace, I've chosen to place MockClient
+// into mcunet::test.
+namespace mcunet {
 namespace test {
-class MockClient : public Client, public MockStream {
+
+class MockClient : public Client, public mcucore::test::MockStream {
  public:
   using MockStream::read;
 
@@ -26,6 +30,8 @@ class MockClient : public Client, public MockStream {
   }
   MOCK_METHOD(bool, mock_operator_bool, (), ());
 };
+
 }  // namespace test
+}  // namespace mcunet
 
 #endif  // MCUNET_EXTRAS_TEST_TOOLS_MOCK_CLIENT_H_
