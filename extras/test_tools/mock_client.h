@@ -1,24 +1,35 @@
 #ifndef MCUNET_EXTRAS_TEST_TOOLS_MOCK_CLIENT_H_
 #define MCUNET_EXTRAS_TEST_TOOLS_MOCK_CLIENT_H_
 
-#include <stdint.h>
-
-#include <cstddef>
+// Mock class for Client. While Client is in the root namespace, I've chosen to
+// place the mock class into a test namespace so that it is really clear that it
+// is for use in tests; in some cases this avoids the need for a using
+// declaration.
+//
+// The only types used here are those of the class(es) being mocked and those
+// used in the methods being mocked. Even though IWYU would call for more
+// headers to be included, I've chosen here to limit the includes in headers
+// like this to gmock.h and the header(s) of the class(es) being mocked.
 
 #include "extras/host/arduino/client.h"
-#include "extras/host/arduino/ip_address.h"
 #include "gmock/gmock.h"
-#include "mcucore/extras/test_tools/mock_stream.h"
 
-// Even though Client is in the root namespace, I've chosen to place MockClient
-// into mcunet::test.
 namespace mcunet {
 namespace test {
 
-class MockClient : public Client, public mcucore::test::MockStream {
+class MockClient : public Client {
  public:
-  using MockStream::read;
+  // Print methods:
+  MOCK_METHOD(size_t, write, (uint8_t), (override));
+  MOCK_METHOD(size_t, write, (const uint8_t *, size_t), (override));
+  MOCK_METHOD(void, flush, (), (override));
 
+  // Stream methods:
+  MOCK_METHOD(int, available, (), (override));
+  MOCK_METHOD(int, read, (), (override));
+  MOCK_METHOD(int, peek, (), (override));
+
+  // Client methods:
   MOCK_METHOD(int, connect, (class IPAddress, uint16_t), (override));
   MOCK_METHOD(int, connect, (const char *, uint16_t), (override));
   MOCK_METHOD(int, read, (uint8_t *, size_t), (override));

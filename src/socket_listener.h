@@ -20,7 +20,7 @@ namespace mcunet {
 class SocketListener {
  public:
 #if !MCU_EMBEDDED_TARGET
-  virtual ~SocketListener() {}
+  virtual ~SocketListener() = default;
 #endif
 
   // Called when there *may* be data to read from the peer. Currently this is

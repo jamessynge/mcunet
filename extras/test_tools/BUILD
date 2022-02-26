@@ -2,38 +2,48 @@
 
 cc_library(
     name = "fake_platform_ethernet",
+    testonly = True,
     hdrs = ["fake_platform_ethernet.h"],
     deps = ["//mcunet/src:platform_ethernet"],
 )
 
 cc_library(
     name = "mock_client",
+    testonly = True,
     hdrs = ["mock_client.h"],
     deps = [
         "//googletest:gunit_headers",
-        "//mcucore/extras/test_tools:mock_stream",
         "//mcunet/extras/host/arduino:client",
-        "//mcunet/extras/host/arduino:ip_address",
     ],
 )
 
 cc_library(
     name = "mock_ethernet_client",
+    testonly = True,
     hdrs = ["mock_ethernet_client.h"],
     deps = [
         ":mock_client",
         "//googletest:gunit_headers",
-        "//mcunet/extras/host/arduino:ip_address",
         "//mcunet/extras/host/ethernet5500:ethernet_client",
     ],
 )
 
 cc_library(
+    name = "mock_ethernet_udp",
+    testonly = True,
+    hdrs = ["mock_ethernet_udp.h"],
+    deps = [
+        "//googletest:gunit_headers",
+        "//mcunet/extras/host/ethernet5500:ethernet_udp",
+    ],
+)
+
+cc_library(
     name = "mock_socket_listener",
+    testonly = True,
     hdrs = ["mock_socket_listener.h"],
     deps = [
         "//googletest:gunit_headers",
-        "//mcunet/src:connection",
         "//mcunet/src:socket_listener",
     ],
 )

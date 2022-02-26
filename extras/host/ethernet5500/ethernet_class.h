@@ -18,11 +18,15 @@ class EthernetClass {
  public:
   EthernetClass();
 
-  // Initialize W5500 with fewer sockets but more RX/TX Buffer space per socket.
-  // maxSockNum = 1 Socket 0 -> RX/TX Buffer 16k
-  // maxSockNum = 2 Socket 0, 1 -> RX/TX Buffer 8k
-  // maxSockNum = 4 Socket 0...3 -> RX/TX Buffer 4k
-  // maxSockNum = 8 (Standard) all sockets -> RX/TX Buffer 2k
+  // init(maxSockNum) initializes the W5500 with the specified number of
+  // hardware sockets enabled, where that number is 1, 2, 4 or 8. A W5500 has
+  // 32KB of buffer for receive and transmit buffers, divided among the sockets
+  // as follows based on the number of hardware sockets:
+  //
+  // maxSockNum = 1 Socket 0 -> RX/TX Buffer 16KB
+  // maxSockNum = 2 Socket 0, 1 -> RX/TX Buffer 8KB
+  // maxSockNum = 4 Socket 0...3 -> RX/TX Buffer 4KB
+  // maxSockNum = 8 (Standard) all sockets -> RX/TX Buffer 2KB
   //
   // Note: MAX_SOCK_NUM is set at compile type, and doesn't reflect the value
   // passed to init().
