@@ -3,6 +3,10 @@
 
 // Exports the Ethernet support needed by some parts of Tiny Alpaca Server.
 //
+// TODO(jamessynge): Remove support for operating on half-closed sockets (i.e.
+// treat that as a request by the client to close the socket, not as the end of
+// the request data).
+//
 // Author: james.synge@gmail.com
 
 #include <McuCore.h>  // IWYU pragma: export
@@ -61,25 +65,11 @@ class PlatformEthernetInterface {
   // Returns true if the hardware socket is listening for TCP connections.
   virtual bool SocketIsTcpListener(uint8_t sock_num, uint16_t tcp_port) = 0;
 
-  // Returns true if the socket is connected to a peer.
-  virtual bool SocketIsConnected(uint8_t sock_num) = 0;
-
   // Initiates a DISCONNECT of a TCP socket.
   virtual bool DisconnectSocket(uint8_t sock_num) = 0;
 
   // Forces a socket to be closed, with no packets sent out.
   virtual bool CloseSocket(uint8_t sock_num) = 0;
-
-  // SnSR::CLOSE_WAIT && no data available to read.
-  virtual bool IsClientDone(uint8_t sock_num) = 0;
-
-  // Is the connection open for writing (i.e. this end hasn't closed or
-  // half-closed it)?
-  virtual bool IsOpenForWriting(uint8_t sock_num) = 0;
-
-  // Returns true if the socket is completely closed (not in use for any
-  // purpose).
-  virtual bool SocketIsClosed(uint8_t sock_num) = 0;
 
   // Returns true if the status indicates that the TCP connection is at least
   // half-open.
@@ -102,6 +92,7 @@ struct PlatformEthernet {
 #endif  // MCU_HAS_PLATFORM_ETHERNET_INTERFACE
 
   // Returns the implementation defined status value for the specified socket.
+  // See SnSR in w5500.h.
   static uint8_t SocketStatus(uint8_t sock_num);
 
   // Finds a hardware socket that is closed, and returns its socket number.
@@ -120,25 +111,11 @@ struct PlatformEthernet {
   // Returns true if the hardware socket is listening for TCP connections.
   static bool SocketIsTcpListener(uint8_t sock_num, uint16_t tcp_port);
 
-  // Returns true if the socket is connected to a peer.
-  static bool SocketIsConnected(uint8_t sock_num);
-
   // Initiates a DISCONNECT of a TCP socket.
   static bool DisconnectSocket(uint8_t sock_num);
 
   // Forces a socket to be closed, with no packets sent out.
   static bool CloseSocket(uint8_t sock_num);
-
-  // SnSR::CLOSE_WAIT && no data available to read.
-  static bool IsClientDone(uint8_t sock_num);
-
-  // Is the connection open for writing (i.e. this end hasn't closed or
-  // half-closed it)?
-  static bool IsOpenForWriting(uint8_t sock_num);
-
-  // Returns true if the socket is completely closed (not in use for any
-  // purpose).
-  static bool SocketIsClosed(uint8_t sock_num);
 
   // Returns true if the status indicates that the TCP connection is at least
   // half-open.

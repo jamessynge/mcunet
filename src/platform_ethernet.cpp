@@ -106,18 +106,6 @@ bool PlatformEthernet::SocketIsTcpListener(uint8_t sock_num,
 #endif  // MCU_HAS_PLATFORM_ETHERNET_INTERFACE
 }
 
-bool PlatformEthernet::SocketIsConnected(uint8_t sock_num) {
-  MCU_DCHECK_LT(sock_num, MAX_SOCK_NUM);
-#if MCU_HAS_PLATFORM_ETHERNET_INTERFACE
-  MCU_CHECK_NE(g_platform_ethernet_impl, nullptr);
-  return g_platform_ethernet_impl->SocketIsConnected(sock_num);
-#else   // !MCU_HAS_PLATFORM_ETHERNET_INTERFACE
-  // Since we don't half-close (shutdown) sockets, checking to see if it is
-  // writeable is sufficient.
-  return IsOpenForWriting(sock_num);
-#endif  // MCU_HAS_PLATFORM_ETHERNET_INTERFACE
-}
-
 bool PlatformEthernet::DisconnectSocket(uint8_t sock_num) {
   MCU_DCHECK_LT(sock_num, MAX_SOCK_NUM);
 #if MCU_HAS_PLATFORM_ETHERNET_INTERFACE
@@ -137,40 +125,6 @@ bool PlatformEthernet::CloseSocket(uint8_t sock_num) {
 #else   // !MCU_HAS_PLATFORM_ETHERNET_INTERFACE
   close(sock_num);
   return true;
-#endif  // MCU_HAS_PLATFORM_ETHERNET_INTERFACE
-}
-
-bool PlatformEthernet::IsClientDone(uint8_t sock_num) {
-  MCU_DCHECK_LT(sock_num, MAX_SOCK_NUM);
-#if MCU_HAS_PLATFORM_ETHERNET_INTERFACE
-  MCU_CHECK_NE(g_platform_ethernet_impl, nullptr);
-  return g_platform_ethernet_impl->IsClientDone(sock_num);
-#else   // !MCU_HAS_PLATFORM_ETHERNET_INTERFACE
-  EthernetClient client(sock_num);
-  return client.status() == SnSR::CLOSE_WAIT && client.available() <= 0;
-#endif  // MCU_HAS_PLATFORM_ETHERNET_INTERFACE
-}
-
-bool PlatformEthernet::IsOpenForWriting(uint8_t sock_num) {
-  MCU_DCHECK_LT(sock_num, MAX_SOCK_NUM);
-#if MCU_HAS_PLATFORM_ETHERNET_INTERFACE
-  MCU_CHECK_NE(g_platform_ethernet_impl, nullptr);
-  return g_platform_ethernet_impl->IsOpenForWriting(sock_num);
-#else   // !MCU_HAS_PLATFORM_ETHERNET_INTERFACE
-  EthernetClient client(sock_num);
-  auto status = client.status();
-  return status == SnSR::ESTABLISHED || status == SnSR::CLOSE_WAIT;
-#endif  // MCU_HAS_PLATFORM_ETHERNET_INTERFACE
-}
-
-bool PlatformEthernet::SocketIsClosed(uint8_t sock_num) {
-  MCU_DCHECK_LT(sock_num, MAX_SOCK_NUM);
-#if MCU_HAS_PLATFORM_ETHERNET_INTERFACE
-  MCU_CHECK_NE(g_platform_ethernet_impl, nullptr);
-  return g_platform_ethernet_impl->SocketIsClosed(sock_num);
-#else   // !MCU_HAS_PLATFORM_ETHERNET_INTERFACE
-  EthernetClient client(sock_num);
-  return client.status() == SnSR::CLOSED;
 #endif  // MCU_HAS_PLATFORM_ETHERNET_INTERFACE
 }
 
