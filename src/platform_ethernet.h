@@ -40,6 +40,12 @@ namespace mcunet {
 #endif  // MCU_HOST_TARGET
 #endif  // MCU_HAS_PLATFORM_ETHERNET_INTERFACE
 
+#ifdef MCU_HAS_PLATFORM_ETHERNET_INTERFACE
+#ifndef MCU_PLATFORM_ETHERNET_IS_OPTIONAL
+#define MCU_PLATFORM_ETHERNET_IS_OPTIONAL 0
+#endif  // !MCU_PLATFORM_ETHERNET_IS_OPTIONAL
+#endif  // MCU_HAS_PLATFORM_ETHERNET_INTERFACE
+
 #if MCU_HAS_PLATFORM_ETHERNET_INTERFACE
 class PlatformEthernetInterface {
  public:
@@ -70,6 +76,10 @@ class PlatformEthernetInterface {
 
   // Forces a socket to be closed, with no packets sent out.
   virtual bool CloseSocket(uint8_t sock_num) = 0;
+
+  // Returns true if the socket is completely closed (not in use for any
+  // purpose).
+  virtual bool SocketIsClosed(uint8_t sock_num) = 0;
 
   // Returns true if the status indicates that the TCP connection is at least
   // half-open.
@@ -116,6 +126,10 @@ struct PlatformEthernet {
 
   // Forces a socket to be closed, with no packets sent out.
   static bool CloseSocket(uint8_t sock_num);
+
+  // Returns true if the socket is completely closed (not in use for any
+  // purpose).
+  static bool SocketIsClosed(uint8_t sock_num);
 
   // Returns true if the status indicates that the TCP connection is at least
   // half-open.
