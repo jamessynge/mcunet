@@ -22,7 +22,6 @@ cc_library(
     testonly = True,
     hdrs = ["mock_ethernet_client.h"],
     deps = [
-        ":mock_client",
         "//googletest:gunit_headers",
         "//mcunet/extras/host/ethernet5500:ethernet_client",
     ],
