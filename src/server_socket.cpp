@@ -11,73 +11,6 @@ namespace {
 constexpr MillisT kDisconnectMaxMillis = 5000;
 constexpr uint8_t kWriteBufferSize = 255;
 
-class TcpServerConnection : public WriteBufferedWrappedClientConnection {
- public:
-  explicit TcpServerConnection(uint8_t *write_buffer,
-                               uint8_t write_buffer_limit,
-                               EthernetClient &client,
-                               ServerSocket::DisconnectData &disconnect_data)
-      : WriteBufferedWrappedClientConnection(write_buffer, write_buffer_limit),
-        client_(client),
-        disconnect_data_(disconnect_data) {
-    MCU_VLOG(5) << MCU_FLASHSTR("TcpServerConnection@") << this
-                << MCU_FLASHSTR(" ctor");
-    disconnect_data_.Reset();
-  }
-  ~TcpServerConnection() {  // NOLINT
-    MCU_VLOG(5) << MCU_FLASHSTR("TcpServerConnection@") << this
-                << MCU_FLASHSTR(" dtor");
-    flush();
-  }
-
-  void close() override {
-    // The Ethernet5500 library's EthernetClient::stop method bakes in a limit
-    // of 1 second for closing a connection, and spins in a loop waiting until
-    // the connection closed, with a delay of 1 millisecond per loop. We avoid
-    // this here by NOT delegating to the stop method. Instead we start the
-    // close with a DISCONNECT operation (i.e. sending a FIN packet to the
-    // peer). PerformIO below will complete the close at some time in the
-    // future.
-    // TODO(jamessynge): Now that I've forked Ethernet3 'permanently' as
-    // Ethernet5500, think about how to fix the issues with stop.
-    auto socket_number = sock_num();
-    auto status = PlatformEthernet::SocketStatus(socket_number);
-    MCU_VLOG(2) << MCU_FLASHSTR("TcpServerConnection::close, sock_num=")
-                << socket_number << MCU_FLASHSTR(", status=")
-                << mcucore::BaseHex << status;
-    if (status == SnSR::ESTABLISHED || status == SnSR::CLOSE_WAIT) {
-      flush();
-      status = PlatformEthernet::SocketStatus(socket_number);
-      if (status == SnSR::ESTABLISHED || status == SnSR::CLOSE_WAIT) {
-        PlatformEthernet::DisconnectSocket(socket_number);
-        status = PlatformEthernet::SocketStatus(socket_number);
-      }
-    }
-    // On the assumption that this is only called when there was a working
-    // connection at the start of a call to the listener (e.g. OnHalfClosed), we
-    // record this as a disconnect initiated by the listener so that we don't
-    // later notify the listener of a disconnect
-    disconnect_data_.RecordDisconnect();
-  }
-
-  bool connected() const override { return client_.connected(); }
-
-  bool peer_half_closed() const override {
-    return PlatformEthernet::StatusIsHalfOpen(sock_num());
-  }
-
-  uint8_t sock_num() const override { return client_.getSocketNumber(); }
-
- protected:
-  Client &client() const override { return client_; }
-
- private:
-  EthernetClient &client_;
-  ServerSocket::DisconnectData &disconnect_data_;
-};
-
-MillisT ElapsedMillis(MillisT start_time) { return millis() - start_time; }
-
 }  // namespace
 
 ServerSocket::ServerSocket(uint16_t tcp_port, ServerSocketListener &listener)
@@ -384,24 +317,6 @@ void ServerSocket::CloseHardwareSocket() {
   PlatformEthernet::CloseSocket(sock_num_);
   last_status_ = PlatformEthernet::SocketStatus(sock_num_);
   MCU_DCHECK_EQ(last_status_, SnSR::CLOSED);
-}
-
-void ServerSocket::DisconnectData::RecordDisconnect() {
-  if (!disconnected) {
-    MCU_VLOG(2) << MCU_FLASHSTR("DisconnectData::RecordDisconnect");
-    disconnected = true;
-    disconnect_time_millis = millis();
-  }
-}
-
-void ServerSocket::DisconnectData::Reset() {
-  disconnected = false;
-  disconnect_time_millis = 0;
-}
-
-MillisT ServerSocket::DisconnectData::ElapsedDisconnectTime() {
-  MCU_DCHECK(disconnected);
-  return ElapsedMillis(disconnect_time_millis);
 }
 
 }  // namespace mcunet

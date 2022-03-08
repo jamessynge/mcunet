@@ -58,6 +58,7 @@ cc_library(
         ":platform_ethernet",
         ":server_socket",
         ":socket_listener",
+        ":tcp_server_connection",
     ],
 )
 
@@ -83,6 +84,7 @@ cc_library(
         ":connection",
         ":platform_ethernet",
         ":socket_listener",
+        ":tcp_server_connection",
         "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
         "//mcucore/src:o_print_stream",
@@ -94,6 +96,18 @@ cc_library(
     hdrs = ["socket_listener.h"],
     deps = [
         ":connection",
+        "//mcucore/src:mcucore_platform",
+    ],
+)
+
+cc_library(
+    name = "tcp_server_connection",
+    srcs = ["tcp_server_connection.cc"],
+    hdrs = ["tcp_server_connection.h"],
+    deps = [
+        ":connection",
+        ":socket_listener",
+        "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
     ],
 )

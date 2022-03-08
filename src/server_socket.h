@@ -38,23 +38,12 @@
 
 #include "connection.h"
 #include "socket_listener.h"
+#include "tcp_server_connection.h"
 
 namespace mcunet {
 
 class ServerSocket {
  public:
-  // Struct used to record whether the listener called Connection::close(), and
-  // if so, when.
-  struct DisconnectData {
-    void RecordDisconnect();
-    void Reset();
-    // Time since RecordDisconnect set disconnect_time_millis.
-    MillisT ElapsedDisconnectTime();
-
-    bool disconnected;
-    MillisT disconnect_time_millis;
-  };
-
   ServerSocket(uint16_t tcp_port, ServerSocketListener& listener);
 
   // Finds a closed hardware socket and starts listening for TCP connections to
