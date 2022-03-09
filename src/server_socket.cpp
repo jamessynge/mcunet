@@ -35,6 +35,13 @@ ServerSocket::ServerSocket(uint16_t tcp_port, ServerSocketListener &listener)
       listener_(listener),
       tcp_port_(tcp_port) {}
 
+bool ServerSocket::HasSocket() const { return sock_num_ < MAX_SOCK_NUM; }
+
+bool ServerSocket::IsConnected() const {
+  return HasSocket() &&
+         PlatformEthernet::SocketIsInTcpConnectionLifecycle(sock_num_);
+}
+
 bool ServerSocket::PickClosedSocket() {
   if (HasSocket()) {
     return false;
@@ -58,22 +65,24 @@ bool ServerSocket::PickClosedSocket() {
   return false;
 }
 
-bool ServerSocket::HasSocket() const { return sock_num_ < MAX_SOCK_NUM; }
-
-bool ServerSocket::IsConnected() const {
-  return HasSocket() &&
-         PlatformEthernet::SocketIsInTcpConnectionLifecycle(sock_num_);
+bool ServerSocket::ReleaseSocket() {
+  if (HasSocket()) {
+    if (IsConnected()) {
+      return false;
+    }
+    CloseHardwareSocket();
+    sock_num_ = MAX_SOCK_NUM;
+  }
+  return true;
 }
 
-bool ServerSocket::ReleaseSocket() {
-  MCU_DCHECK(HasSocket());
-  if (IsConnected()) {
-    return false;
+void ServerSocket::SocketLost() {
+  if (HasSocket() && PlatformEthernet::StatusIsOpen(last_status_)) {
+    listener_.OnDisconnect();
   }
-
-  CloseHardwareSocket();
-  sock_num_ = 0;
-  return true;
+  sock_num_ = MAX_SOCK_NUM;
+  last_status_ = SnSR::CLOSED;
+  disconnect_data_.RecordDisconnect();
 }
 
 #define STATUS_IS_UNEXPECTED_MESSAGE(expected_str, some_status,               \
@@ -263,6 +272,9 @@ void ServerSocket::PerformIO() {
 // flash consumption.
 
 void ServerSocket::AnnounceConnected() {
+  // TODO(jamessynge): This should be the point where disconnect_data_ is Reset,
+  // not in the TcpServerConnection ctor; that would ensure that it is reset
+  // only once per connection.
   EthernetClient client(sock_num_);
   uint8_t write_buffer[kWriteBufferSize];
   TcpServerConnection conn(write_buffer, kWriteBufferSize, client,

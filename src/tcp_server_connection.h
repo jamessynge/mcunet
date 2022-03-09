@@ -30,12 +30,13 @@ struct DisconnectData {
   // Time since RecordDisconnect set disconnected and disconnect_time_millis.
   MillisT ElapsedDisconnectTime();
 
-  // True if disconnected, false otherwise.
-  bool disconnected;
+  // True if disconnected, false otherwise. Starts disconnected, i.e. we don't
+  // have a connection at startup.
+  bool disconnected = true;
 
   // Time at which RecordDisconnect recorded a disconnect (i.e. the first such
   // call after Reset()).
-  MillisT disconnect_time_millis;
+  MillisT disconnect_time_millis = 0;
 };
 
 class TcpServerConnection : public WriteBufferedWrappedClientConnection {

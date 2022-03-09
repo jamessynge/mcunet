@@ -20,9 +20,11 @@ class ServerSocketTest : public testing::Test {
   ServerSocket server_socket_;
 };
 
-TEST_F(ServerSocketTest, FixtureTest) {
+TEST_F(ServerSocketTest, NewInstanceTest) {
   EXPECT_FALSE(server_socket_.HasSocket());
   EXPECT_FALSE(server_socket_.IsConnected());
+  EXPECT_TRUE(server_socket_.ReleaseSocket());
+  server_socket_.SocketLost();
 }
 
 }  // namespace
