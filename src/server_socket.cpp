@@ -8,8 +8,24 @@
 namespace mcunet {
 namespace {
 
-constexpr MillisT kDisconnectMaxMillis = 5000;
+// Amount of stack space to allocate for a write buffer when creating a
+// TcpServerConnection instance.
 constexpr uint8_t kWriteBufferSize = 255;
+
+// The Ethernet3 library baked in a limit of 1 second for closing a connection,
+// and did so by using a loop checking to see if the connection closed, blocking
+// all other activity. This implementation doesn't block in a loop, but instead
+// checks periodically to see if the hardware socket reports that it has reached
+// the closed state; if that takes too long (> kDisconnectMaxMillis since we
+// determined that closing started), then we force the hardware socket to close.
+//
+// Note that we don't wait the spec. mandated 2*MaximumSegmentLifetime for the
+// TIME_WAIT state to end before closing the hardware socket. We have a very
+// very limited number of hardware sockets, and we expect the two peers (e.g.
+// the client and Tiny Alpaca Server) to respond to the FIN and FIN-ACK packets
+// quite quickly (milliseconds, not minutes), and expect that there won't be
+// stray packets meandering around the network for a long time.
+constexpr MillisT kDisconnectMaxMillis = 5000;
 
 }  // namespace
 
@@ -298,10 +314,6 @@ void ServerSocket::DetectListenerInitiatedDisconnect() {
 }
 
 void ServerSocket::DetectCloseTimeout() {
-  // The Ethernet3 library baked in a limit of 1 second for closing a
-  // connection, and did so by using a loop checking to see if the connection
-  // closed. Since this implementation doesn't block in a loop, we can allow a
-  // bit more time.
   if (disconnect_data_.disconnected &&
       disconnect_data_.ElapsedDisconnectTime() > kDisconnectMaxMillis) {
     // Time to give up.

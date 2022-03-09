@@ -47,8 +47,7 @@ void TcpServerConnection::close() {
   // the connection closed, with a delay of 1 millisecond per loop. We avoid
   // this here by NOT delegating to the stop method. Instead we start the
   // close with a DISCONNECT operation (i.e. sending a FIN packet to the
-  // peer). PerformIO below will complete the close at some time in the
-  // future.
+  // peer).
   // TODO(jamessynge): Now that I've forked Ethernet3 'permanently' as
   // Ethernet5500, think about how to fix the issues with stop.
   auto socket_number = sock_num();
@@ -57,6 +56,8 @@ void TcpServerConnection::close() {
               << socket_number << MCU_FLASHSTR(", status=") << mcucore::BaseHex
               << status;
   if (status == SnSR::ESTABLISHED || status == SnSR::CLOSE_WAIT) {
+    // We have an open connection. Make sure that any data in the write buffer
+    // is sent.
     flush();
     status = PlatformEthernet::SocketStatus(socket_number);
     if (status == SnSR::ESTABLISHED || status == SnSR::CLOSE_WAIT) {
@@ -64,7 +65,7 @@ void TcpServerConnection::close() {
       status = PlatformEthernet::SocketStatus(socket_number);
     }
   }
-  // On the assumption that this is only called when there was a working
+  // On the assumption that this is only called when there is a working
   // connection at the start of a call to the listener (e.g. OnHalfClosed), we
   // record this as a disconnect initiated by the listener so that we don't
   // later notify the listener of a disconnect

@@ -44,7 +44,9 @@ class SocketListener {
 
   // Called when we discover that the connection has been broken by the other
   // party (e.g. when a RST packet is received and the socket status changes to
-  // CLOSED without this application having initiated the close).
+  // CLOSED without this application having initiated the close). This might
+  // also occur if network configuration needs to be reset, such as when the
+  // DHCP lease has expired.
   virtual void OnDisconnect() = 0;
 };
 

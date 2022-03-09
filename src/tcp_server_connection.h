@@ -2,7 +2,8 @@
 #define MCUNET_SRC_TCP_SERVER_CONNECTION_H_
 
 // TcpServerConnection wraps an EthernetClient to provide buffered writing, and
-// tracking of when a disconnect occurred.
+// tracking of when a disconnect occurred, allowing for closing a connection in
+// a non-blocking fashion.
 //
 // Author: james.synge@gmail.com
 
@@ -16,13 +17,14 @@ namespace mcunet {
 // Returns the milliseconds since start_time. Beware of wrap around.
 MillisT ElapsedMillis(MillisT start_time);
 
-// Struct used to record whether the listener called Connection::close(), and
-// if so, when.
+// Struct used to record when we detected or initiated the close of a
+// connection.
 struct DisconnectData {
   // Mark as NOT disconnected.
   void Reset();
 
-  // Mark as disconnected, if not already disconnected.
+  // Mark as disconnected, if not already marked as such, and if so record the
+  // current time.
   void RecordDisconnect();
 
   // Time since RecordDisconnect set disconnected and disconnect_time_millis.
@@ -42,6 +44,8 @@ class TcpServerConnection : public WriteBufferedWrappedClientConnection {
                       EthernetClient &client, DisconnectData &disconnect_data);
   ~TcpServerConnection() override;
 
+  // Closes the connection and records the connection as disconnected. This is
+  // non-blocking.
   void close() override;
   bool connected() const override;
   bool peer_half_closed() const override;

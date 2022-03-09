@@ -50,7 +50,10 @@ class Connection : public Stream {
 
 // An abstract implementation of Connection that delegates to a Client instance
 // provided by a subclass. To produce a concrete instance, some subclass will
-// also need to implement close() and connected().
+// also need to implement the public methods close() and connected(), and the
+// protected method client().
+// TODO(jamessynge): Determine whether this should be retained. It has been
+// superceded by WriteBufferedWrappedClientConnection.
 class WrappedClientConnection : public Connection {
  public:
   size_t write(uint8_t b) override;
@@ -66,8 +69,15 @@ class WrappedClientConnection : public Connection {
 };
 
 // An abstract implementation of Connection that delegates to a Client instance
-// provided by a subclass. To produce a concrete instance, some subclass will
-// also need to implement close() and connected().
+// provided by a subclass, adding buffering of writes. I added this because I
+// found the performance to be very slow without it, and realized this was
+// because each character or string being printed to the EthernetClient was
+// resulting in an SPI transaction. By buffering up a bunch of smaller strings
+// we amortize the cost setting up the transaction. Note that I've not measured
+// the optimal size of the buffer, nor have I investigated performing any kind
+// of async SPI... it doesn't seem necessary for Tiny Alpaca Server and would
+// require more buffer management.
+// TODO(jamessynge): Consider shortening the name of this class. It's unwieldy.
 class WriteBufferedWrappedClientConnection : public Connection {
  public:
   WriteBufferedWrappedClientConnection(uint8_t *write_buffer,
