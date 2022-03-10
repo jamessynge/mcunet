@@ -29,6 +29,12 @@ size_t WrappedClientConnection::write(uint8_t b) { return client().write(b); }
 size_t WrappedClientConnection::write(const uint8_t *buf, size_t size) {
   return client().write(buf, size);
 }
+int WrappedClientConnection::availableForWrite() {
+  if (connected()) {
+    return client().availableForWrite();
+  }
+  return -1;
+}
 int WrappedClientConnection::available() {
   if (connected()) {
     return client().available();
@@ -89,6 +95,12 @@ size_t WriteBufferedWrappedClientConnection::write(const uint8_t *buf,
     FlushIfFull();
   }
   return size;
+}
+int WriteBufferedWrappedClientConnection::availableForWrite() {
+  if (connected()) {
+    return write_buffer_limit_ - write_buffer_size_;
+  }
+  return -1;
 }
 int WriteBufferedWrappedClientConnection::available() {
   if (connected()) {

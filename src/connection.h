@@ -58,6 +58,7 @@ class WrappedClientConnection : public Connection {
  public:
   size_t write(uint8_t b) override;
   size_t write(const uint8_t *buf, size_t size) override;
+  int availableForWrite() override;
   int available() override;
   int read() override;
   size_t read(uint8_t *buf, size_t size) override;
@@ -85,6 +86,7 @@ class WriteBufferedWrappedClientConnection : public Connection {
 
   size_t write(uint8_t b) override;
   size_t write(const uint8_t *buf, size_t size) override;
+  int availableForWrite() override;
   int available() override;
   int read() override;
   size_t read(uint8_t *buf, size_t size) override;
