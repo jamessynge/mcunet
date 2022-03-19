@@ -1,10 +1,20 @@
 #include "extras/host/ethernet5500/ethernet_server.h"
 
-#include "absl/time/clock.h"
-#include "absl/time/time.h"
 #include "extras/host/ethernet5500/ethernet_class.h"
 #include "extras/host/ethernet5500/host_sockets.h"
 #include "extras/host/ethernet5500/w5500.h"
+
+// The names of some Arduino macros are the same as those of symbols found in
+// useful libraries, interfering with their use (e.g. <limits> defines functions
+// called min and max). Where I find that to be the case, I undefine those
+// macros here.
+#undef abs
+#undef max
+#undef min
+#undef round
+
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "glog/logging.h"
 
 using ::mcunet_host::HostSockets;
