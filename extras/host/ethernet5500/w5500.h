@@ -3,7 +3,7 @@
 // Some portions of Ethernet5500/src/utility/w5500.h for the purpose of faking
 // the interface exposed by the Wiznet 5500 network chip.
 
-#include "mcucore/extras/host/arduino/int_types.h"
+#include <stdint.h>
 
 class SnMR {
  public:

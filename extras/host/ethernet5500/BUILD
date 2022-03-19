@@ -92,5 +92,4 @@ cc_library(
 cc_library(
     name = "w5500",
     hdrs = ["w5500.h"],
-    deps = ["//mcucore/extras/host/arduino:int_types"],
 )

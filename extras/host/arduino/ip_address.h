@@ -4,7 +4,8 @@
 // IPAddress holds and can print an IPv4 address. The Arduino version has more
 // features that I've not yet needed.
 
-#include "mcucore/extras/host/arduino/int_types.h"
+#include <stdint.h>
+
 #include "mcucore/extras/host/arduino/print.h"
 
 class IPAddress : public Printable {

@@ -4,6 +4,8 @@
 
 namespace mcunet {
 
+using mcucore::MillisT;
+
 MillisT ElapsedMillis(MillisT start_time) { return millis() - start_time; }
 
 void DisconnectData::RecordDisconnect() {

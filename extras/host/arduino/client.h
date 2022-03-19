@@ -3,8 +3,9 @@
 
 // Represents a stream connected to a server.
 
+#include <stdint.h>
+
 #include "extras/host/arduino/ip_address.h"
-#include "mcucore/extras/host/arduino/int_types.h"
 #include "mcucore/extras/host/arduino/stream.h"
 
 class Client : public Stream {

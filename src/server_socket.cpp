@@ -25,7 +25,7 @@ constexpr uint8_t kWriteBufferSize = 255;
 // the client and Tiny Alpaca Server) to respond to the FIN and FIN-ACK packets
 // quite quickly (milliseconds, not minutes), and expect that there won't be
 // stray packets meandering around the network for a long time.
-constexpr MillisT kDisconnectMaxMillis = 5000;
+constexpr mcucore::MillisT kDisconnectMaxMillis = 5000;
 
 }  // namespace
 
