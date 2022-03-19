@@ -16,6 +16,12 @@ namespace mcunet {
 // whether it has been closed.
 class Connection : public Stream {
  public:
+#if MCU_HOST_TARGET
+  virtual ~Connection();
+#else
+  ~Connection() override;
+#endif
+
   // Returns the number of readable bytes. If not connected, returns -1.
   int available() override = 0;
 

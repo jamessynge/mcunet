@@ -5,6 +5,8 @@
 
 namespace mcunet {
 
+Connection::~Connection() {}
+
 size_t Connection::read(uint8_t *buf, size_t size) {
   size_t result = 0;
   while (size > 0) {
