@@ -17,9 +17,12 @@ namespace mcunet {
 class Connection : public Stream {
  public:
 #if MCU_HOST_TARGET
-  virtual ~Connection();
-#else
   ~Connection() override;
+#endif
+#if MCU_EMBEDDED_TARGET
+  // Arduino doesn't define dtors, so we need to here in order to allow
+  // subclasses to specify that they override some base class dtor.
+  virtual ~Connection();
 #endif
 
   // Returns the number of readable bytes. If not connected, returns -1.
