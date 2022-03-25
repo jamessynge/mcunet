@@ -40,14 +40,18 @@ uint8_t toOuiUnicast(uint8_t macByte1) {
 }  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
-// An Arduino Ethernet shield (or an freetronics EtherTen board, which I've used
-// to test this code) does not have its own MAC address (the unique identifier
-// used to distinguish one Ethernet device from another). Fortunately the design
-// of MAC addresses allows for both globally unique addresses (i.e. assigned at
-// the factory, unique world-wide) and locally unique addresses. This code will
-// generate an address in the range allowed for local administered addresses and
-// store it in EEPROM. Note though that there is no support here for probing to
-// ensure that the allocated address is free. Read more about the issue here:
+// Relatively inexpensive Arduino boards or shields with Ethernet support are
+// unlikely to have a factory assigned MAC address, most likely due to the
+// expensve of purchasing a block of MAC addresses. However, each device on an
+// Ethernet network just have a unique MAC address in order to (reliably)
+// communicate.
+//
+// Fortunately the design of MAC addresses allows for both globally unique
+// addresses (i.e. assigned at the factory, unique world-wide) and locally
+// unique addresses. This code will generate an address in the range allowed for
+// local administered addresses and store it in EEPROM. Note though that there
+// is no support here for probing to ensure that the allocated address is free.
+// Read more about the issue here:
 //
 //     https://serverfault.com/a/40720
 //     https://en.wikipedia.org/wiki/MAC_address#Universal_vs._local
@@ -212,6 +216,7 @@ bool Addresses::load(const OuiPrefix* oui_prefix) {
 }
 
 void Addresses::generateAddresses(const OuiPrefix* oui_prefix) {
+  mcucore::JitterRandom::setRandomSeed();
   mac.generateAddress(oui_prefix);
   pickIPAddress(&ip);
 }

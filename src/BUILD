@@ -16,6 +16,7 @@ cc_library(
         "//mcucore/src:crc32",
         "//mcucore/src:eeprom_io",
         "//mcucore/src:hex_escape",
+        "//mcucore/src:jitter_random",
         "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
         "//mcucore/src:o_print_stream",
