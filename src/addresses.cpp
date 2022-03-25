@@ -9,7 +9,7 @@ namespace {
 // currently stored values, which can be useful if you want to change the
 // OuiPrefix, or to debug this code.
 
-inline mcucore::ProgmemStringView Name() { return MCU_PSV("addrs"); }
+inline mcucore::ProgmemStringView Name() { return MCU_PSV("Addrs"); }
 
 // A link-local address is in the range 169.254.1.0 to 169.254.254.255,
 // inclusive. Learn more: https://tools.ietf.org/html/rfc3927
