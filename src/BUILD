@@ -46,6 +46,7 @@ cc_library(
         "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
         "//mcucore/src:progmem_string_data",
+        "//mcunet/extras/host/ethernet5500:dhcp_class",
     ],
 )
 

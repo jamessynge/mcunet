@@ -1,5 +1,3 @@
-#include <Arduino.h>
-#include <Ethernet5500.h>
 #include <McuCore.h>
 #include <McuNet.h>
 
@@ -34,7 +32,7 @@ void setup() {
   // first 3 bytes of the MAC addresses generated; this means that all boards
   // running this sketch will share the first 3 bytes of their MAC addresses,
   // which may help with locating them.
-  mcunet::OuiPrefix oui_prefix(0x53, 0x75, 0x76);
+  mcunet::OuiPrefix oui_prefix(0xeb, 0xcf, 0xb6);
   if (!ip_device.InitializeNetworking(&oui_prefix)) {
     announceFailure("Unable to initialize networking!");
   }
