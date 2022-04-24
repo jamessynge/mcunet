@@ -14,7 +14,10 @@ cc_library(
     deps = [
         ":platform_ethernet",
         "//mcucore/src:crc32",
+        "//mcucore/src:eeprom_domain",
         "//mcucore/src:eeprom_io",
+        "//mcucore/src:eeprom_region",
+        "//mcucore/src:eeprom_tlv",
         "//mcucore/src:hex_escape",
         "//mcucore/src:jitter_random",
         "//mcucore/src:logging",
@@ -22,6 +25,9 @@ cc_library(
         "//mcucore/src:o_print_stream",
         "//mcucore/src:progmem_string_data",
         "//mcucore/src:progmem_string_view",
+        "//mcucore/src:status",
+        "//mcucore/src:status_or",
+        "//util/task:status",
     ],
 )
 
@@ -36,16 +42,42 @@ cc_library(
 )
 
 cc_library(
+    name = "ethernet_address",
+    srcs = ["ethernet_address.cc"],
+    hdrs = ["ethernet_address.h"],
+    deps = [
+        "//mcucore/src:eeprom_region",
+        "//mcucore/src:hex_escape",
+        "//mcucore/src:mcucore_platform",
+        "//mcucore/src:status",
+    ],
+)
+
+cc_library(
+    name = "ip_address",
+    srcs = ["ip_address.cc"],
+    hdrs = ["ip_address.h"],
+    deps = [
+        ":platform_ethernet",
+        "//mcucore/src:eeprom_region",
+        "//mcucore/src:mcucore_platform",
+        "//mcucore/src:status",
+    ],
+)
+
+cc_library(
     name = "ip_device",
     srcs = ["ip_device.cc"],
     hdrs = ["ip_device.h"],
     deps = [
         ":addresses",
         ":platform_ethernet",
+        "//mcucore/src:eeprom_tlv",
         "//mcucore/src:log_sink",
         "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
         "//mcucore/src:progmem_string_data",
+        "//mcucore/src:status",
     ],
 )
 
