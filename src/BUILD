@@ -12,16 +12,22 @@ cc_library(
     srcs = ["addresses.cc"],
     hdrs = ["addresses.h"],
     deps = [
-        ":platform_ethernet",
-        "//mcucore/src:crc32",
+        ":eeprom_tags",
+        ":ethernet_address",
+        ":ip_address",
         "//mcucore/src:eeprom_io",
+        "//mcucore/src:eeprom_region",
+        "//mcucore/src:eeprom_tag",
+        "//mcucore/src:eeprom_tlv",
         "//mcucore/src:hex_escape",
         "//mcucore/src:jitter_random",
         "//mcucore/src:logging",
-        "//mcucore/src:mcucore_platform",
         "//mcucore/src:o_print_stream",
         "//mcucore/src:progmem_string_data",
         "//mcucore/src:progmem_string_view",
+        "//mcucore/src:status",
+        "//mcucore/src:status_or",
+        "//util/task:status",
     ],
 )
 
@@ -36,13 +42,26 @@ cc_library(
 )
 
 cc_library(
+    name = "eeprom_tags",
+    srcs = ["eeprom_tags.cc"],
+    hdrs = ["eeprom_tags.h"],
+    deps = [
+        "//mcucore/src:eeprom_tag",
+        "//mcucore/src:mcucore_platform",
+    ],
+)
+
+cc_library(
     name = "ethernet_address",
     srcs = ["ethernet_address.cc"],
     hdrs = ["ethernet_address.h"],
     deps = [
         "//mcucore/src:eeprom_region",
         "//mcucore/src:hex_escape",
+        "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
+        "//mcucore/src:progmem_string_data",
+        "//mcucore/src:progmem_string_view",
         "//mcucore/src:status",
     ],
 )
@@ -54,8 +73,11 @@ cc_library(
     deps = [
         ":platform_ethernet",
         "//mcucore/src:eeprom_region",
+        "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
+        "//mcucore/src:progmem_string_view",
         "//mcucore/src:status",
+        "//mcunet/extras/host/arduino:ip_address",
     ],
 )
 
@@ -65,11 +87,16 @@ cc_library(
     hdrs = ["ip_device.h"],
     deps = [
         ":addresses",
+        ":ethernet_address",
+        ":ip_address",
         ":platform_ethernet",
+        "//mcucore/src:eeprom_tlv",
         "//mcucore/src:log_sink",
         "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
         "//mcucore/src:progmem_string_data",
+        "//mcucore/src:progmem_string_view",
+        "//mcucore/src:status",
     ],
 )
 
@@ -131,6 +158,7 @@ cc_library(
     hdrs = ["tcp_server_connection.h"],
     deps = [
         ":connection",
+        ":platform_ethernet",
         ":socket_listener",
         "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",

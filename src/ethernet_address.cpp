@@ -75,8 +75,12 @@ size_t EthernetAddress::printTo(Print& out) const {
   return mcucore::PrintWithEthernetFormatting(out, bytes);
 }
 
-bool EthernetAddress::operator==(const EthernetAddress& other) const {
-  return 0 == memcmp(bytes, other.bytes, sizeof bytes);
+bool operator==(const EthernetAddress& lhs, const EthernetAddress& rhs) {
+  return 0 == memcmp(lhs.bytes, rhs.bytes, sizeof lhs.bytes);
+}
+
+bool operator<(const EthernetAddress& lhs, const EthernetAddress& rhs) {
+  return memcmp(lhs.bytes, rhs.bytes, sizeof lhs.bytes) < 0;
 }
 
 }  // namespace mcunet

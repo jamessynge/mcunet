@@ -42,4 +42,15 @@ mcucore::Status IpAddress::WriteToRegion(mcucore::EepromRegion& region) const {
   }
 }
 
+bool operator<(const IpAddress& lhs, const IpAddress& rhs) {
+  for (int i = 0; i < 4; ++i) {
+    if (lhs[i] < rhs[i]) {
+      return true;
+    } else if (lhs[i] > rhs[i]) {
+      return false;
+    }
+  }
+  return false;  // equal, not less
+}
+
 }  // namespace mcunet

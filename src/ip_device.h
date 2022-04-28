@@ -8,7 +8,7 @@
 
 #include <McuCore.h>
 
-#include "addresses.h"
+#include "ethernet_address.h"
 #include "platform_ethernet.h"
 
 namespace mcunet {
@@ -24,8 +24,13 @@ struct Mega2560Eth {
 class IpDevice {
  public:
   // Set the MAC address of the Ethernet chip and get a DHCP assigned IP address
-  // or use a generated address. Returns false if unable to configure addresses
-  // or if there is no Ethernet hardware, else returns true.
+  // or use a "randomly" generated address. Returns false if unable to configure
+  // addresses or if there is no Ethernet hardware, else returns true.
+  //
+  // If it is necessary to generate an Ethernet (MAC) address, the Arduino
+  // random number library is used, so be sure to seed it according to the level
+  // of randomness you want in the generated address; if you don't set the seed,
+  // the same sequence of numbers is always produced.
   //
   // It *MAY* help with identifying devices on the network that are using this
   // software if they have a known "Organizationally Unique Identifier" (the
@@ -33,7 +38,8 @@ class IpDevice {
   // OuiPrefix allowing the caller to provide such a prefix.
   //
   // Call Mega2560Eth::SetupW5500 prior to calling this method.
-  bool InitializeNetworking(const OuiPrefix* oui_prefix = nullptr);
+  mcucore::Status InitializeNetworking(mcucore::EepromTlv& eeprom_tlv,
+                                       const OuiPrefix* oui_prefix = nullptr);
 
   // Ensures that the DHCP lease (if there is one) is maintained. Returns a
   // DHCP_CHECK_* value; definitions in Ethernet5500's Dhcp.h.

@@ -2,242 +2,66 @@
 
 #include <McuCore.h>
 
+#include "eeprom_tags.h"
+
 namespace mcunet {
 namespace {
-// This is the name used to identify the data stored in the EEPROM. Changing the
-// value (e.g. between "addrs" and "Addrs") has the effect of invalidating the
-// currently stored values, which can be useful if you want to change the
-// OuiPrefix, or to debug this code.
-
-inline mcucore::ProgmemStringView Name() { return MCU_PSV("Addrs"); }
-
-// A link-local address is in the range 169.254.1.0 to 169.254.254.255,
-// inclusive. Learn more: https://tools.ietf.org/html/rfc3927
-void pickIPAddress(IPAddress* output) {
-  int c = random(254) + 1;
-  MCU_VLOG(5) << MCU_FLASHSTR("pickIPAddress: c=") << c;
-
-  int d = random(256);
-  MCU_VLOG(5) << MCU_FLASHSTR("pickIPAddress: d=") << d;
-
-  (*output)[0] = 169;
-  (*output)[1] = 254;
-  (*output)[2] = c;
-  (*output)[3] = d;
+// Helper for calls to WriteEntryToCursor.
+mcucore::Status WriteAddressesToRegion(mcucore::EepromRegion& region,
+                                       const Addresses& addresses) {
+  return addresses.WriteToRegion(region);
 }
-
-// Will modify the first byte of a MAC address so that it is in the
-// Organizationally Unique Identifier space, and that it is a unicast
-// (rather than multicast) address.
-uint8_t toOuiUnicast(uint8_t macByte1) {
-  // Make sure this is in the locally administered space.
-  macByte1 |= 2;
-  // And not a multicast address.
-  macByte1 &= ~1;
-  return macByte1;
-}
-
 }  // namespace
 
-////////////////////////////////////////////////////////////////////////////////
-// Relatively inexpensive Arduino boards or shields with Ethernet support are
-// unlikely to have a factory assigned MAC address, most likely due to the
-// expensve of purchasing a block of MAC addresses. However, each device on an
-// Ethernet network just have a unique MAC address in order to (reliably)
-// communicate.
-//
-// Fortunately the design of MAC addresses allows for both globally unique
-// addresses (i.e. assigned at the factory, unique world-wide) and locally
-// unique addresses. This code will generate an address in the range allowed for
-// local administered addresses and store it in EEPROM. Note though that there
-// is no support here for probing to ensure that the allocated address is free.
-// Read more about the issue here:
-//
-//     https://serverfault.com/a/40720
-//     https://en.wikipedia.org/wiki/MAC_address#Universal_vs._local
-//
-// Quoting from the wikipedia article:
-//
-//     Universally administered and locally administered addresses are
-//     distinguished by setting the second least significant bit of the
-//     most significant byte of the address. If the bit is 0, the address
-//     is universally administered. If it is 1, the address is locally
-//     administered. In the example address 02-00-00-00-00-01 the most
-//     significant byte is 02h. The binary is 00000010 and the second
-//     least significant bit is 1. Therefore, it is a locally
-//     administered address.
-
-OuiPrefix::OuiPrefix() : OuiPrefix(0, 0, 0) {}
-
-OuiPrefix::OuiPrefix(uint8_t a, uint8_t b, uint8_t c) {
-  bytes[0] = toOuiUnicast(a);
-  bytes[1] = b;
-  bytes[2] = c;
-}
-
-size_t OuiPrefix::printTo(Print& p) const {
-  size_t result = p.print(bytes[0], HEX);
-  for (int i = 1; i < 3; ++i) {
-    result += p.print('-');
-    result += p.print(bytes[i], HEX);
+mcucore::Status Addresses::ReadEepromEntry(mcucore::EepromTlv& eeprom_tlv,
+                                           const OuiPrefix* oui_prefix) {
+  MCU_VLOG(4) << MCU_FLASHSTR("Addresses::ReadEepromEntry");
+  MCU_ASSIGN_OR_RETURN(auto region, eeprom_tlv.FindEntry(GetAddressesTag()));
+  MCU_RETURN_IF_ERROR(ReadFromRegion(region));
+  if (oui_prefix && !ethernet.HasOuiPrefix(*oui_prefix)) {
+    auto status =
+        mcucore::FailedPreconditionError(MCU_PSV("Stored OUI prefix mismatch"));
+    MCU_VLOG(2) << status.message();
+    return status;
   }
-  return result;
+  return mcucore::OkStatus();
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-void MacAddress::generateAddress(const OuiPrefix* oui_prefix) {
-  int first_index;
-  if (oui_prefix) {
-    first_index = 3;
-    mac[0] = oui_prefix->bytes[0];
-    mac[1] = oui_prefix->bytes[1];
-    mac[2] = oui_prefix->bytes[2];
-  } else {
-    first_index = 0;
-  }
-  for (int i = first_index; i < 6; ++i) {
-    auto r = static_cast<uint8_t>(random(256));
-    if (i == 0) {
-      r = toOuiUnicast(r);
-    }
-    mac[i] = r;
-    MCU_VLOG(4) << MCU_FLASHSTR("mac[") << i << MCU_FLASHSTR("] = ")
-                << mcucore::BaseHex << (mac[i] + 0);
-  }
+mcucore::Status Addresses::WriteEepromEntry(
+    mcucore::EepromTlv& eeprom_tlv) const {
+  MCU_VLOG(4) << MCU_FLASHSTR("Addresses::WriteEepromEntry");
+  return eeprom_tlv.WriteEntryToCursor(GetAddressesTag(), 4 + 6,
+                                       WriteAddressesToRegion, *this);
 }
 
-size_t MacAddress::printTo(Print& p) const {
-  size_t result = p.print(mac[0], HEX);
-  for (int i = 1; i < 6; ++i) {
-    result += p.print('-');
-    result += p.print(mac[i], HEX);
-  }
-  return result;
+void Addresses::GenerateAddresses(const OuiPrefix* const oui_prefix) {
+  ethernet.GenerateAddress(oui_prefix);
+  ip.GenerateAddress();
 }
 
-int MacAddress::save(int toAddress, mcucore::Crc32* crc) const {
-  mcucore::eeprom_io::PutBytes(toAddress, &mac[0], 6, crc);
-  return toAddress + 6;
+void Addresses::InsertInto(mcucore::OPrintStream& strm) const {
+  strm << MCU_NAME_VAL(ethernet) << MCU_NAME_VAL(ip);
 }
 
-int MacAddress::read(int fromAddress, mcucore::Crc32* crc) {
-  mcucore::eeprom_io::GetBytes(fromAddress, 6, &mac[0], crc);
-  return fromAddress + 6;
+mcucore::Status Addresses::ReadFromRegion(mcucore::EepromRegionReader& region) {
+  MCU_RETURN_IF_ERROR(ethernet.ReadFromRegion(region));
+  MCU_RETURN_IF_ERROR(ip.ReadFromRegion(region));
+  return mcucore::OkStatus();
 }
 
-bool MacAddress::hasOuiPrefix(const OuiPrefix& oui_prefix) const {
-  return (mac[0] == oui_prefix.bytes[0] && mac[1] == oui_prefix.bytes[1] &&
-          mac[2] == oui_prefix.bytes[2]);
+mcucore::Status Addresses::WriteToRegion(mcucore::EepromRegion& region) const {
+  MCU_RETURN_IF_ERROR(ethernet.WriteToRegion(region));
+  MCU_RETURN_IF_ERROR(ip.WriteToRegion(region));
+  return mcucore::OkStatus();
 }
 
-bool MacAddress::operator==(const MacAddress& other) const {
-  for (int i = 0; i < 6; ++i) {
-    if (mac[i] != other.mac[i]) {
-      return false;
-    }
-  }
-  return true;
+bool operator==(const Addresses& lhs, const Addresses& rhs) {
+  return lhs.ethernet == rhs.ethernet && lhs.ip == rhs.ip;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// NOTE: I'm assuming here that IPAddress only supports IPv4 addresses. There
-// are some Arduino libraries where IPAddress also supports IPv6 addresses,
-// for which this code would need updating.
-
-int SaveableIPAddress::save(int toAddress, mcucore::Crc32* crc) const {
-  for (int i = 0; i < 4; ++i) {
-    const uint8_t b = (*this)[i];
-    EEPROM.update(toAddress++, b);
-    if (crc) {
-      crc->appendByte(b);
-    }
-  }
-  return toAddress;
+bool operator<(const Addresses& lhs, const Addresses& rhs) {
+  return lhs.ethernet < rhs.ethernet ||
+         (lhs.ethernet == rhs.ethernet && lhs.ip < rhs.ip);
 }
 
-int SaveableIPAddress::read(int fromAddress, mcucore::Crc32* crc) {
-  for (int i = 0; i < 4; ++i) {
-    const uint8_t b = EEPROM.read(fromAddress++);
-    (*this)[i] = b;
-    if (crc) {
-      crc->appendByte(b);
-    }
-  }
-  return fromAddress;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-void Addresses::loadOrGenAndSave(const OuiPrefix* oui_prefix) {
-  MCU_VLOG(4) << MCU_FLASHSTR("Entered loadOrGenAndSave");
-  if (load(oui_prefix)) {
-    return;
-  }
-  // Need to generate a new address.
-  generateAddresses(oui_prefix);
-  save();
-
-#ifndef NDEBUG
-  Addresses loader;
-  MCU_DCHECK(loader.load(oui_prefix));
-  MCU_DCHECK_EQ(loader.ip, ip);
-#endif
-}
-
-void Addresses::save() const {
-  MCU_VLOG(3) << MCU_FLASHSTR("Saving ") << Name();
-
-  int ipAddress = mcucore::eeprom_io::SaveName(0, Name());
-  mcucore::Crc32 crc;
-  int macAddress = ip.save(ipAddress, &crc);
-  int crcAddress = mac.save(macAddress, &crc);
-  mcucore::eeprom_io::PutCrc(crcAddress, crc);
-}
-
-bool Addresses::load(const OuiPrefix* oui_prefix) {
-  int ipAddress;
-  if (!mcucore::eeprom_io::VerifyName(0, Name(), &ipAddress)) {
-    MCU_VLOG(2) << MCU_FLASHSTR("Stored name mismatch");
-    return false;
-  }
-  mcucore::Crc32 crc;
-  int macAddress = ip.read(ipAddress, &crc);
-  int crcAddress = mac.read(macAddress, &crc);
-  if (!mcucore::eeprom_io::VerifyCrc(crcAddress, crc)) {
-    MCU_VLOG(2) << MCU_FLASHSTR("Stored crc mismatch");
-    return false;
-  }
-  if (oui_prefix && !mac.hasOuiPrefix(*oui_prefix)) {
-    MCU_VLOG(2) << MCU_FLASHSTR("Stored OUI prefix mismatch");
-    return false;
-  }
-  return true;
-}
-
-void Addresses::generateAddresses(const OuiPrefix* oui_prefix) {
-  mcucore::JitterRandom::setRandomSeed();
-  mac.generateAddress(oui_prefix);
-  pickIPAddress(&ip);
-}
-
-void Addresses::println(const char* prefix) const {
-  if (prefix) {
-    Serial.print(prefix);
-  }
-  Serial.println(*this);
-}
-
-size_t Addresses::printTo(Print& p) const {
-  size_t result = Name().printTo(p);
-  result += p.print(MCU_FLASHSTR(": MAC="));
-  result += p.print(mac);
-  result += p.print(MCU_FLASHSTR(", IP="));
-  result += p.print(ip);
-  return result;
-}
-
-bool Addresses::operator==(const Addresses& other) const {
-  return ip == other.ip && mac == other.mac;
-}
 }  // namespace mcunet

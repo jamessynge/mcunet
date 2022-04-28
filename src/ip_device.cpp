@@ -1,8 +1,10 @@
 // TODO(jamessynge): Ethernet.init should take the chip select pin as an arg,
 // and should call W5500::init so that we can then do a softReset call.
-// TODO(jamessynge): EthernetClass should use millis() and a static var
-// to decide whether it has been long enough since power-up or hard-reset so
-// that we can rely on the chip being ready to work.
+//
+// TODO(jamessynge): EthernetClass should use millis() and a static var to
+// decide whether it has been long enough since power-up or hard-reset so that
+// we can rely on the chip being ready to work.
+//
 // TODO(jamessynge): Add some means of testing whether there is an Ethernet
 // cable attached. In the not, or in the event that DHCP doesn't work, we may
 // want to keep trying to initialize the networking from the main loop, at least
@@ -12,6 +14,9 @@
 
 #include <McuCore.h>
 
+#include "addresses.h"
+#include "ethernet_address.h"
+#include "ip_address.h"
 #include "platform_ethernet.h"
 
 namespace mcunet {
@@ -37,8 +42,8 @@ void Mega2560Eth::SetupW5500(uint8_t max_sock_num) {
   Ethernet.setCsPin(kW5500ChipSelectPin);
 
   // If there has been a crash and restart of the ATmega, I've found that the
-  // networking seems to be broken, so doing a hard reset explicitly so that
-  // we always act more like a power-up situation.
+  // networking seems to be broken, so doing a hard reset explicitly so that we
+  // always act more like a power-up situation.
   Ethernet.hardreset();
 
   // For now use all of the allowed sockets. Need to have at least one UDP
@@ -46,19 +51,39 @@ void Mega2560Eth::SetupW5500(uint8_t max_sock_num) {
   // the Alpaca discovery protocol, and possibly for time. Then we need at least
   // one TCP socket, more if we want to handle multiple simultaneous requests.
   Ethernet.init(max_sock_num);
+
+  // The hard reset above may not work (e.g. if the jumper/solder bridge is not
+  // present to connect the reset W5500 reset pin to the kW5500ResetPin, an AVR
+  // GPIO pin), so try a soft reset, too.
+  Ethernet.softreset();
 }
 
-bool IpDevice::InitializeNetworking(const OuiPrefix* oui_prefix) {
-  // Load the addresses saved to EEPROM, if they were previously saved. If
-  // they were not successfully loaded, then generate them and save them into
-  // the EEPROM.
+mcucore::Status IpDevice::InitializeNetworking(
+    mcucore::EepromTlv& eeprom_tlv, const OuiPrefix* const oui_prefix) {
+  // Load the addresses saved to EEPROM, if they were previously saved. If they
+  // were not successfully loaded, then generate them and save them into the
+  // EEPROM.
   Addresses addresses;
-  addresses.loadOrGenAndSave(oui_prefix);
+  auto status = addresses.ReadEepromEntry(eeprom_tlv, oui_prefix);
+  if (!status.ok()) {
+    MCU_VLOG(1) << MCU_FLASHSTR("Error loading network addresses: ") << status;
 
-  // If unable to get an address using DHCP, try again with a softReset between
-  // the two attempts.
+    // Need to generate a new address.
+    addresses.GenerateAddresses(oui_prefix);
+
+    status = addresses.WriteEepromEntry(eeprom_tlv);
+    MCU_DCHECK_OK(status) << MCU_FLASHSTR(
+        "Failed to save generated network addresses");
+    if (!status.ok()) {
+      MCU_VLOG(1) << MCU_FLASHSTR("Failed to save generated network addresses")
+                  << MCU_FLASHSTR(": ") << status;
+    }
+  }
+
+  // If unable to get an address using DHCP, try again with a softReset
+  // between the two attempts.
   Ethernet.setDhcp(&dhcp);
-  using_dhcp_ = Ethernet.begin(addresses.mac.mac);
+  using_dhcp_ = Ethernet.begin(addresses.ethernet.bytes);
   if (!using_dhcp_) {
     MCU_VLOG(2) << MCU_FLASHSTR("Failed to get an address using DHCP");
     // TODO(jamessynge): First check whether there is an Ethernet cable
@@ -66,41 +91,39 @@ bool IpDevice::InitializeNetworking(const OuiPrefix* oui_prefix) {
     // check whether a cable is attached later in the main loop. This may
     // require splitting TinyAlpacaServer::initialize into two parts: one for
     // the networking hardware, repeated as necessary, and another (once only)
-    // for the Alpaca devices.
+    // for the Alpaca devices. OR just loop here indefinitely, waiting for the
+    // network cable to be attached.
     Ethernet.softreset();
-    using_dhcp_ = Ethernet.begin(addresses.mac.mac);
+    using_dhcp_ = Ethernet.begin(addresses.ethernet.bytes);
     if (!using_dhcp_) {
       MCU_VLOG(2) << MCU_FLASHSTR("Failed to get an address using DHCP")
                   << MCU_FLASHSTR(" after a soft reset.");
     }
   }
 
-  if (using_dhcp_) {
-    // Wonderful news, we were able to get an IP address via DHCP.
-  } else {
+  if (!using_dhcp_) {
     // Is there hardware? If there is, we should be able to read our MAC address
     // back from the chip.
-    MacAddress mac;
-    Ethernet.macAddress(mac.mac);
-    if (!(mac == addresses.mac)) {
+    EthernetAddress mac;
+    Ethernet.macAddress(mac.bytes);
+    if (!(mac == addresses.ethernet)) {
       // Oops, this isn't the right board to run this sketch.
-      mcucore::LogSink() << MCU_FLASHSTR("Found no networking hardware");
-      return false;
+      return mcucore::NotFoundError(MCU_PSV("Found no networking hardware"));
     }
 
     mcucore::LogSink() << MCU_FLASHSTR("No DHCP, using default IP ")
                        << addresses.ip;
 
-    // No DHCP server responded with a lease on an IP address, so we'll
-    // fallback to using our randomly generated IP.
+    // No DHCP server responded with a lease on an IP address, so we'll fallback
+    // to using our randomly generated IP.
     using_dhcp_ = false;
 
-    // The link-local address range must not be divided into smaller
-    // subnets, so we set our subnet mask accordingly:
+    // The link-local address range must not be divided into smaller subnets, so
+    // we set our subnet mask accordingly:
     IPAddress subnet(255, 255, 0, 0);
 
-    // Assume that the gateway is on the same subnet, at address 1 within
-    // the subnet. This code will work with many subnets, not just a /16.
+    // Assume that the gateway is on the same subnet, at address 1 within the
+    // subnet. This code will work with many subnets, not just a /16.
     IPAddress gateway = addresses.ip;
     gateway[0] &= subnet[0];
     gateway[1] &= subnet[1];
@@ -108,10 +131,10 @@ bool IpDevice::InitializeNetworking(const OuiPrefix* oui_prefix) {
     gateway[3] &= subnet[3];
     gateway[3] |= 1;
 
-    Ethernet.begin(addresses.mac.mac, addresses.ip, subnet, gateway);
+    Ethernet.begin(addresses.ethernet.bytes, addresses.ip, subnet, gateway);
   }
 
-  return true;
+  return mcucore::OkStatus();
 }
 
 int IpDevice::MaintainDhcpLease() {
@@ -126,8 +149,8 @@ int IpDevice::MaintainDhcpLease() {
 }
 
 void IpDevice::PrintNetworkAddresses() {
-  MacAddress mac;
-  Ethernet.macAddress(mac.mac);
+  EthernetAddress mac;
+  Ethernet.macAddress(mac.bytes);
   mcucore::LogSink() << MCU_FLASHSTR("MAC: ") << mac;
   mcucore::LogSink() << MCU_FLASHSTR("IP: ") << Ethernet.localIP();
   mcucore::LogSink() << MCU_FLASHSTR("Subnet: ") << Ethernet.subnetMask();

@@ -32,9 +32,14 @@ class IpAddress : public ::IPAddress {
 
   // Write the address to the region, starting at the cursor.
   mcucore::Status WriteToRegion(mcucore::EepromRegion& region) const;
-
-  bool operator!=(const IpAddress& other) const { return !(*this == other); }
 };
+
+// Not expecting to use these operators in an embedded environment, but it's
+// convenient to define them here.
+bool operator<(const IpAddress& lhs, const IpAddress& rhs);
+inline bool operator!=(const IpAddress& lhs, const IpAddress& rhs) {
+  return !(lhs == rhs);
+}
 
 }  // namespace mcunet
 

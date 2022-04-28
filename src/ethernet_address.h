@@ -94,13 +94,17 @@ struct EthernetAddress {
   // Prints the bytes in the standard Ethernet format.
   size_t printTo(Print& out) const;
 
-  bool operator==(const EthernetAddress& other) const;
-  bool operator!=(const EthernetAddress& other) const {
-    return !(*this == other);
-  }
-
   uint8_t bytes[6];
 };
+
+// May not use these operators in an embedded environment, but it's convenient
+// to define them here, rather than just for tests.
+bool operator==(const EthernetAddress& lhs, const EthernetAddress& rhs);
+inline bool operator!=(const EthernetAddress& lhs, const EthernetAddress& rhs) {
+  return !(lhs == rhs);
+}
+bool operator<(const EthernetAddress& lhs, const EthernetAddress& rhs);
+
 }  // namespace mcunet
 
 #endif  // MCUNET_SRC_ETHERNET_ADDRESS_H_
