@@ -4,10 +4,6 @@
 
 namespace mcunet {
 
-using mcucore::MillisT;
-
-MillisT ElapsedMillis(MillisT start_time) { return millis() - start_time; }
-
 void DisconnectData::RecordDisconnect() {
   if (!disconnected) {
     MCU_VLOG(2) << MCU_FLASHSTR("DisconnectData::RecordDisconnect");
@@ -21,9 +17,9 @@ void DisconnectData::Reset() {
   disconnect_time_millis = 0;
 }
 
-MillisT DisconnectData::ElapsedDisconnectTime() {
+mcucore::MillisT DisconnectData::ElapsedDisconnectTime() {
   MCU_DCHECK(disconnected);
-  return ElapsedMillis(disconnect_time_millis);
+  return mcucore::ElapsedMillis(disconnect_time_millis);
 }
 
 TcpServerConnection::TcpServerConnection(uint8_t *write_buffer,
@@ -37,6 +33,7 @@ TcpServerConnection::TcpServerConnection(uint8_t *write_buffer,
               << MCU_FLASHSTR(" ctor");
   disconnect_data_.Reset();
 }
+
 TcpServerConnection::~TcpServerConnection() {  // NOLINT
   MCU_VLOG(5) << MCU_FLASHSTR("TcpServerConnection@") << this
               << MCU_FLASHSTR(" dtor");
@@ -51,7 +48,7 @@ void TcpServerConnection::close() {
   // close with a DISCONNECT operation (i.e. sending a FIN packet to the
   // peer).
   // TODO(jamessynge): Now that I've forked Ethernet3 'permanently' as
-  // Ethernet5500, think about how to fix the issues with stop.
+  // Ethernet5500, I need to think about how to fix the issues with stop.
   auto socket_number = sock_num();
   auto status = PlatformEthernet::SocketStatus(socket_number);
   MCU_VLOG(2) << MCU_FLASHSTR("TcpServerConnection::close, sock_num=")

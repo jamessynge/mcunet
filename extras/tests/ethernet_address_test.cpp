@@ -1,7 +1,8 @@
 #include "ethernet_address.h"
 
 #include <McuCore.h>
-#include <strings.h>
+
+#include <cstring>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -11,7 +12,7 @@
 namespace mcunet {
 
 bool operator<(const EthernetAddress& lhs, const EthernetAddress& rhs) {
-  return memcmp(lhs.bytes, rhs.bytes, 6) < 0;
+  return std::memcmp(lhs.bytes, rhs.bytes, 6) < 0;
 }
 
 namespace test {

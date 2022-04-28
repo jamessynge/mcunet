@@ -1,7 +1,7 @@
 #include "ethernet_address.h"
 
 #include <McuCore.h>
-#include <strings.h>
+#include <string.h>
 
 namespace mcunet {
 
