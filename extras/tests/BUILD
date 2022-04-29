@@ -16,20 +16,6 @@ cc_test(
 )
 
 cc_test(
-    name = "eeprom_tags_test",
-    srcs = ["eeprom_tags_test.cc"],
-    deps = [
-        "//googletest:gunit_main",
-        "//mcucore/extras/test_tools:print_to_std_string",
-        "//mcucore/extras/test_tools:print_value_to_std_string",
-        "//mcucore/extras/test_tools:sample_printable",
-        "//mcucore/extras/test_tools:status_test_utils",
-        "//mcucore/src:status_code",
-        "//mcunet/src:eeprom_tags",
-    ],
-)
-
-cc_test(
     name = "ethernet_address_test",
     srcs = ["ethernet_address_test.cc"],
     deps = [

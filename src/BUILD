@@ -15,19 +15,14 @@ cc_library(
         ":eeprom_tags",
         ":ethernet_address",
         ":ip_address",
-        "//mcucore/src:eeprom_io",
         "//mcucore/src:eeprom_region",
-        "//mcucore/src:eeprom_tag",
         "//mcucore/src:eeprom_tlv",
-        "//mcucore/src:hex_escape",
-        "//mcucore/src:jitter_random",
         "//mcucore/src:logging",
         "//mcucore/src:o_print_stream",
         "//mcucore/src:progmem_string_data",
         "//mcucore/src:progmem_string_view",
         "//mcucore/src:status",
         "//mcucore/src:status_or",
-        "//util/task:status",
     ],
 )
 
@@ -45,10 +40,7 @@ cc_library(
     name = "eeprom_tags",
     srcs = ["eeprom_tags.cc"],
     hdrs = ["eeprom_tags.h"],
-    deps = [
-        "//mcucore/src:eeprom_tag",
-        "//mcucore/src:mcucore_platform",
-    ],
+    deps = ["//mcucore/src:eeprom_tag"],
 )
 
 cc_library(
@@ -77,7 +69,6 @@ cc_library(
         "//mcucore/src:mcucore_platform",
         "//mcucore/src:progmem_string_view",
         "//mcucore/src:status",
-        "//mcunet/extras/host/arduino:ip_address",
     ],
 )
 
