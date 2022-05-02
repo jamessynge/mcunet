@@ -10,11 +10,6 @@
 #include "mcucore/extras/test_tools/status_test_utils.h"
 
 namespace mcunet {
-
-bool operator<(const EthernetAddress& lhs, const EthernetAddress& rhs) {
-  return std::memcmp(lhs.bytes, rhs.bytes, 6) < 0;
-}
-
 namespace test {
 namespace {
 

@@ -12,17 +12,6 @@
 #include "platform_ethernet.h"
 
 namespace mcunet {
-bool operator<(const IpAddress& lhs, const IpAddress& rhs) {
-  for (int i = 0; i < 4; ++i) {
-    if (lhs[i] < rhs[i]) {
-      return true;
-    } else if (lhs[i] > rhs[i]) {
-      return false;
-    }
-  }
-  return false;  // Equal, not less
-}
-
 namespace test {
 namespace {
 

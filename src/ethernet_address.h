@@ -94,7 +94,11 @@ struct EthernetAddress {
   // Prints the bytes in the standard Ethernet format.
   size_t printTo(Print& out) const;
 
-  uint8_t bytes[6];
+  uint8_t bytes[6]
+#ifdef MCU_HAVE_MEMORY_SANITIZER
+      = {0, 0, 0, 0, 0, 0}
+#endif
+  ;
 };
 
 // May not use these operators in an embedded environment, but it's convenient
