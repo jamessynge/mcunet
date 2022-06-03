@@ -73,7 +73,8 @@ mcucore::Status IpDevice::InitializeNetworking(
   Addresses addresses;
   auto status = addresses.ReadEepromEntry(eeprom_tlv, oui_prefix);
   if (!status.ok()) {
-    MCU_VLOG(1) << MCU_FLASHSTR("Error loading network addresses: ") << status;
+    MCU_VLOG(2) << MCU_FLASHSTR("Error loading network addresses: ") << status;
+    MCU_VLOG(1) << MCU_FLASHSTR("Generating Ethernet and default IP addresses");
 
     // Need to generate a new address.
     addresses.GenerateAddresses(oui_prefix);
