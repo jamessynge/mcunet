@@ -20,6 +20,12 @@ is sufficient justification (other than fun) for doing this. There are plenty of
 other developers out there who've done similar work, which it is worth exploring
 in detail before making a decision about this.
 
+### TODOs
+
+*  For demos, it is beneficial to NOT wait for DHCP to complete before being
+   able to answer Alpaca Discovery requests. So, consider supporting async DHCP
+   address allocation requests.
+
 ## About extras/host/...
 
 I find that I can develop software (think, code, compile/link, test/debug,

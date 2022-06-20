@@ -32,6 +32,8 @@ static ::DhcpClass dhcp;
 
 // static
 void Mega2560Eth::SetupW5500(uint8_t max_sock_num) {
+  MCU_VLOG(3) << MCU_FLASHSTR("SetupW5500 Entry");
+
   // Make sure that the SD Card interface is not the selected SPI device.
   pinMode(kSDcardSelectPin, OUTPUT);
   digitalWrite(kSDcardSelectPin, HIGH);
@@ -44,18 +46,23 @@ void Mega2560Eth::SetupW5500(uint8_t max_sock_num) {
   // If there has been a crash and restart of the ATmega, I've found that the
   // networking seems to be broken, so doing a hard reset explicitly so that we
   // always act more like a power-up situation.
+  MCU_VLOG(3) << MCU_FLASHSTR("hardreset");
   Ethernet.hardreset();
 
   // For now use all of the allowed sockets. Need to have at least one UDP
   // socket, and maybe more; our UDP uses include DHCP lease & lease renewal,
   // the Alpaca discovery protocol, and possibly for time. Then we need at least
   // one TCP socket, more if we want to handle multiple simultaneous requests.
+  MCU_VLOG(3) << MCU_FLASHSTR("init");
   Ethernet.init(max_sock_num);
 
-  // The hard reset above may not work (e.g. if the jumper/solder bridge is not
-  // present to connect the reset W5500 reset pin to the kW5500ResetPin, an AVR
-  // GPIO pin), so try a soft reset, too.
-  Ethernet.softreset();
+  // // The hard reset above may not work (e.g. if the jumper/solder bridge is not
+  // // present to connect the reset W5500 reset pin to the kW5500ResetPin, an AVR
+  // // GPIO pin), so try a soft reset, too.
+  // MCU_VLOG(3) << MCU_FLASHSTR("softreset");
+  // Ethernet.softreset();
+
+  MCU_VLOG(3) << MCU_FLASHSTR("SetupW5500 Exit");
 }
 
 mcucore::Status IpDevice::InitializeNetworking(
@@ -66,7 +73,8 @@ mcucore::Status IpDevice::InitializeNetworking(
   Addresses addresses;
   auto status = addresses.ReadEepromEntry(eeprom_tlv, oui_prefix);
   if (!status.ok()) {
-    MCU_VLOG(1) << MCU_FLASHSTR("Error loading network addresses: ") << status;
+    MCU_VLOG(2) << MCU_FLASHSTR("Error loading network addresses: ") << status;
+    MCU_VLOG(1) << MCU_FLASHSTR("Generating Ethernet and default IP addresses");
 
     // Need to generate a new address.
     addresses.GenerateAddresses(oui_prefix);
@@ -84,8 +92,8 @@ mcucore::Status IpDevice::InitializeNetworking(
   // between the two attempts.
   Ethernet.setDhcp(&dhcp);
   using_dhcp_ = Ethernet.begin(addresses.ethernet.bytes);
-  if (!using_dhcp_) {
-    MCU_VLOG(2) << MCU_FLASHSTR("Failed to get an address using DHCP");
+  if (!using_dhcp_ && false) {
+    MCU_VLOG(1) << MCU_FLASHSTR("Failed to get an address using DHCP");
     // TODO(jamessynge): First check whether there is an Ethernet cable
     // attached; if not, then we don't benefit from a retry. Instead, we can
     // check whether a cable is attached later in the main loop. This may
@@ -94,9 +102,10 @@ mcucore::Status IpDevice::InitializeNetworking(
     // for the Alpaca devices. OR just loop here indefinitely, waiting for the
     // network cable to be attached.
     Ethernet.softreset();
+    MCU_VLOG(1) << MCU_FLASHSTR("softreset complete");
     using_dhcp_ = Ethernet.begin(addresses.ethernet.bytes);
     if (!using_dhcp_) {
-      MCU_VLOG(2) << MCU_FLASHSTR("Failed to get an address using DHCP")
+      MCU_VLOG(1) << MCU_FLASHSTR("Failed to get an address using DHCP")
                   << MCU_FLASHSTR(" after a soft reset.");
     }
   }
