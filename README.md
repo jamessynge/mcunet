@@ -3,7 +3,8 @@
 C++ library providing networking support for Arduino sketches, focused on the
 WIZnet W5500 Internet Offload Chip, which is used in the Robotdyn Mega Eth.
 
-This library depends on [McuCore](https://github.com/jamessynge/mcucore).
+This library depends on [McuCore](https://github.com/jamessynge/mcucore) and on
+[Ethernet5500](https://github.com/jamessynge/Ethernet5500).
 
 ## Planning and Goals
 
@@ -22,9 +23,10 @@ in detail before making a decision about this.
 
 ### TODOs
 
-*  For demos, it is beneficial to NOT wait for DHCP to complete before being
-   able to answer Alpaca Discovery requests. So, consider supporting async DHCP
-   address allocation requests.
+*   For demos and for rapid testing of releases when there is no DHCP server, it
+    is beneficial to NOT wait too long for DHCP to complete before using the
+    generated link-local IP address. So, consider supporting async DHCP address
+    allocation requests (a new feature in Ethernet5500).
 
 ## About extras/host/...
 

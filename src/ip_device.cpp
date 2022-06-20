@@ -56,12 +56,11 @@ void Mega2560Eth::SetupW5500(uint8_t max_sock_num) {
   MCU_VLOG(3) << MCU_FLASHSTR("init");
   Ethernet.init(max_sock_num);
 
-  // // The hard reset above may not work (e.g. if the jumper/solder bridge is not
-  // // present to connect the reset W5500 reset pin to the kW5500ResetPin, an AVR
-  // // GPIO pin), so try a soft reset, too.
-  // MCU_VLOG(3) << MCU_FLASHSTR("softreset");
-  // Ethernet.softreset();
-
+  // Used to call Ethernet.softreset() here, in an attempt to deal with the hard
+  // reset above not working (e.g. when the jumper/solder bridge is not present
+  // to connect the reset W5500 reset pin to the kW5500ResetPin, an AVR GPIO
+  // pin). However I found that this would sometimes hang, so not worth the
+  // risk.
   MCU_VLOG(3) << MCU_FLASHSTR("SetupW5500 Exit");
 }
 
@@ -99,8 +98,8 @@ mcucore::Status IpDevice::InitializeNetworking(
     // check whether a cable is attached later in the main loop. This may
     // require splitting TinyAlpacaServer::initialize into two parts: one for
     // the networking hardware, repeated as necessary, and another (once only)
-    // for the Alpaca devices. OR just loop here indefinitely, waiting for the
-    // network cable to be attached.
+    // for the Alpaca devices (but not the Alpaca network servers). OR just loop
+    // here indefinitely, waiting for the network cable to be attached.
     Ethernet.softreset();
     MCU_VLOG(1) << MCU_FLASHSTR("softreset complete");
     using_dhcp_ = Ethernet.begin(addresses.ethernet.bytes);
