@@ -31,8 +31,18 @@ cc_library(
     srcs = ["connection.cc"],
     hdrs = ["connection.h"],
     deps = [
-        ":platform_ethernet",
+        ":platform_network",
         "//mcucore/src:logging",
+    ],
+)
+
+cc_library(
+    name = "disconnect_data",
+    srcs = ["disconnect_data.cc"],
+    hdrs = ["disconnect_data.h"],
+    deps = [
+        "//mcucore/src:logging",
+        "//mcucore/src:mcucore_platform",
     ],
 )
 
@@ -63,7 +73,7 @@ cc_library(
     srcs = ["ip_address.cc"],
     hdrs = ["ip_address.h"],
     deps = [
-        ":platform_ethernet",
+        ":platform_network",
         "//mcucore/src:eeprom_region",
         "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
@@ -80,7 +90,7 @@ cc_library(
         ":addresses",
         ":ethernet_address",
         ":ip_address",
-        ":platform_ethernet",
+        ":platform_network",
         "//mcucore/src:eeprom_tlv",
         "//mcucore/src:log_sink",
         "//mcucore/src:logging",
@@ -98,7 +108,7 @@ cc_library(
         ":addresses",
         ":connection",
         ":ip_device",
-        ":platform_ethernet",
+        ":platform_network",
         ":server_socket",
         ":socket_listener",
         ":tcp_server_connection",
@@ -106,10 +116,18 @@ cc_library(
 )
 
 cc_library(
-    name = "platform_ethernet",
-    srcs = ["platform_ethernet.cc"],
-    hdrs = ["platform_ethernet.h"],
+    name = "mcunet_config",
+    hdrs = ["mcunet_config.h"],
+    deps = ["//mcucore/src:mcucore_platform"],
+)
+
+cc_library(
+    name = "platform_network",
+    srcs = ["platform_network.cc"],
+    hdrs = ["platform_network.h"],
     deps = [
+        ":mcunet_config",
+        ":platform_network_interface",
         "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
         "//mcunet/extras/host/arduino:client",
@@ -120,12 +138,20 @@ cc_library(
 )
 
 cc_library(
+    name = "platform_network_interface",
+    srcs = ["platform_network_interface.cc"],
+    hdrs = ["platform_network_interface.h"],
+    textual_hdrs = ["platform_network_api.cc.inc"],
+    deps = ["//mcucore/src:mcucore_platform"],
+)
+
+cc_library(
     name = "server_socket",
     srcs = ["server_socket.cc"],
     hdrs = ["server_socket.h"],
     deps = [
-        ":connection",
-        ":platform_ethernet",
+        ":disconnect_data",
+        ":platform_network",
         ":socket_listener",
         ":tcp_server_connection",
         "//mcucore/src:logging",
@@ -149,8 +175,8 @@ cc_library(
     hdrs = ["tcp_server_connection.h"],
     deps = [
         ":connection",
-        ":platform_ethernet",
-        ":socket_listener",
+        ":disconnect_data",
+        ":platform_network",
         "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
     ],

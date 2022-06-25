@@ -8,7 +8,7 @@
 //
 // Author: james.synge@gmail.com
 
-#include "platform_ethernet.h"
+#include "platform_network.h"
 
 namespace mcunet {
 

@@ -17,7 +17,7 @@
 #include "addresses.h"
 #include "ethernet_address.h"
 #include "ip_address.h"
-#include "platform_ethernet.h"
+#include "platform_network.h"
 
 namespace mcunet {
 namespace {

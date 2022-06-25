@@ -3,6 +3,7 @@
 #include <McuCore.h>
 
 #include <cstring>
+#include <set>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"

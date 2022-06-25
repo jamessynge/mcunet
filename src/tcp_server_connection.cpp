@@ -4,24 +4,6 @@
 
 namespace mcunet {
 
-void DisconnectData::RecordDisconnect() {
-  if (!disconnected) {
-    MCU_VLOG(2) << MCU_FLASHSTR("DisconnectData::RecordDisconnect");
-    disconnected = true;
-    disconnect_time_millis = millis();
-  }
-}
-
-void DisconnectData::Reset() {
-  disconnected = false;
-  disconnect_time_millis = 0;
-}
-
-mcucore::MillisT DisconnectData::ElapsedDisconnectTime() {
-  MCU_DCHECK(disconnected);
-  return mcucore::ElapsedMillis(disconnect_time_millis);
-}
-
 TcpServerConnection::TcpServerConnection(uint8_t *write_buffer,
                                          uint8_t write_buffer_limit,
                                          EthernetClient &client,
@@ -50,7 +32,7 @@ void TcpServerConnection::close() {
   // TODO(jamessynge): Now that I've forked Ethernet3 'permanently' as
   // Ethernet5500, I need to think about how to fix the issues with stop.
   auto socket_number = sock_num();
-  auto status = PlatformEthernet::SocketStatus(socket_number);
+  auto status = PlatformNetwork::SocketStatus(socket_number);
   MCU_VLOG(2) << MCU_FLASHSTR("TcpServerConnection::close, sock_num=")
               << socket_number << MCU_FLASHSTR(", status=") << mcucore::BaseHex
               << status;
@@ -58,10 +40,10 @@ void TcpServerConnection::close() {
     // We have an open connection. Make sure that any data in the write buffer
     // is sent.
     flush();
-    status = PlatformEthernet::SocketStatus(socket_number);
+    status = PlatformNetwork::SocketStatus(socket_number);
     if (status == SnSR::ESTABLISHED || status == SnSR::CLOSE_WAIT) {
-      PlatformEthernet::DisconnectSocket(socket_number);
-      status = PlatformEthernet::SocketStatus(socket_number);
+      PlatformNetwork::DisconnectSocket(socket_number);
+      status = PlatformNetwork::SocketStatus(socket_number);
     }
   }
   // On the assumption that this is only called when there is a working
@@ -74,7 +56,7 @@ void TcpServerConnection::close() {
 bool TcpServerConnection::connected() const { return client_.connected(); }
 
 bool TcpServerConnection::peer_half_closed() const {
-  return PlatformEthernet::StatusIsHalfOpen(sock_num());
+  return PlatformNetwork::StatusIsHalfOpen(sock_num());
 }
 
 uint8_t TcpServerConnection::sock_num() const {

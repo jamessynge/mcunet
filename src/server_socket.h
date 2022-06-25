@@ -22,7 +22,7 @@
 //
 // * If the connection is CLOSE_WAIT, we call HandleCloseWait.
 //
-// * If the connection is closing (e.g. PlatformEthernet::StatusIsClosing), we
+// * If the connection is closing (e.g. PlatformNetwork::StatusIsClosing), we
 //   call HandleClosingTimeout to ensure the socket isn't in the state for too
 //   long.
 //
@@ -37,9 +37,9 @@
 
 #include <McuCore.h>
 
-#include "connection.h"
+#include "disconnect_data.h"
+#include "platform_network.h"
 #include "socket_listener.h"
-#include "tcp_server_connection.h"
 
 namespace mcunet {
 

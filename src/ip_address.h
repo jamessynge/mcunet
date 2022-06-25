@@ -13,7 +13,7 @@
 
 #include <McuCore.h>
 
-#include "platform_ethernet.h"
+#include "platform_network.h"
 
 namespace mcunet {
 

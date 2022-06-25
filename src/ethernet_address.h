@@ -98,7 +98,7 @@ struct EthernetAddress {
 #ifdef MCU_HAVE_MEMORY_SANITIZER
       = {0, 0, 0, 0, 0, 0}
 #endif
-  ;
+  ;  // NOLINT
 };
 
 // May not use these operators in an embedded environment, but it's convenient

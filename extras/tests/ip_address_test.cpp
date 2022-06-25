@@ -9,7 +9,7 @@
 #include "gtest/gtest.h"
 #include "mcucore/extras/test_tools/print_value_to_std_string.h"
 #include "mcucore/extras/test_tools/status_test_utils.h"
-#include "platform_ethernet.h"
+#include "platform_network.h"
 
 namespace mcunet {
 namespace test {

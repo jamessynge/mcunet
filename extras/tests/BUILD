@@ -39,7 +39,7 @@ cc_test(
         "//mcucore/src:eeprom_region",
         "//mcucore/src:status",
         "//mcunet/src:ip_address",
-        "//mcunet/src:platform_ethernet",
+        "//mcunet/src:platform_network",
     ],
 )
 

@@ -2,8 +2,8 @@
 
 #include <McuCore.h>
 
-#include "connection.h"
-#include "platform_ethernet.h"
+#include "platform_network.h"
+#include "tcp_server_connection.h"
 
 namespace mcunet {
 namespace {
@@ -39,7 +39,7 @@ bool ServerSocket::HasSocket() const { return sock_num_ < MAX_SOCK_NUM; }
 
 bool ServerSocket::IsConnected() const {
   return HasSocket() &&
-         PlatformEthernet::SocketIsInTcpConnectionLifecycle(sock_num_);
+         PlatformNetwork::SocketIsInTcpConnectionLifecycle(sock_num_);
 }
 
 bool ServerSocket::PickClosedSocket() {
@@ -49,11 +49,11 @@ bool ServerSocket::PickClosedSocket() {
 
   last_status_ = SnSR::CLOSED;
 
-  int sock_num = PlatformEthernet::FindUnusedSocket();
+  int sock_num = PlatformNetwork::FindUnusedSocket();
   if (0 <= sock_num && sock_num < MAX_SOCK_NUM) {
     sock_num_ = sock_num & 0xff;
     if (BeginListening()) {
-      last_status_ = PlatformEthernet::SocketStatus(sock_num_);
+      last_status_ = PlatformNetwork::SocketStatus(sock_num_);
       return true;
     }
     MCU_VLOG(1) << MCU_FLASHSTR("listen for ") << tcp_port_
@@ -77,7 +77,7 @@ bool ServerSocket::ReleaseSocket() {
 }
 
 void ServerSocket::SocketLost() {
-  if (HasSocket() && PlatformEthernet::StatusIsOpen(last_status_)) {
+  if (HasSocket() && PlatformNetwork::StatusIsOpen(last_status_)) {
     listener_.OnDisconnect();
   }
   sock_num_ = MAX_SOCK_NUM;
@@ -100,11 +100,11 @@ void ServerSocket::SocketLost() {
 bool ServerSocket::BeginListening() {
   if (!HasSocket()) {
     return false;
-  } else if (PlatformEthernet::SocketIsTcpListener(sock_num_, tcp_port_)) {
+  } else if (PlatformNetwork::SocketIsTcpListener(sock_num_, tcp_port_)) {
     // Already listening.
     MCU_VLOG(1) << MCU_FLASHSTR("Already listening, last_status_ is ")
                 << mcucore::BaseHex << last_status_;
-    last_status_ = PlatformEthernet::SocketStatus(sock_num_);
+    last_status_ = PlatformNetwork::SocketStatus(sock_num_);
     return true;
   } else if (IsConnected()) {
     return false;
@@ -112,8 +112,8 @@ bool ServerSocket::BeginListening() {
 
   CloseHardwareSocket();
 
-  if (PlatformEthernet::InitializeTcpListenerSocket(sock_num_, tcp_port_)) {
-    last_status_ = PlatformEthernet::SocketStatus(sock_num_);
+  if (PlatformNetwork::InitializeTcpListenerSocket(sock_num_, tcp_port_)) {
+    last_status_ = PlatformNetwork::SocketStatus(sock_num_);
     MCU_VLOG(1) << MCU_FLASHSTR("Listening to port ") << tcp_port_
                 << MCU_FLASHSTR(" on socket ") << sock_num_
                 << MCU_FLASHSTR(", last_status is ") << mcucore::BaseHex
@@ -139,10 +139,10 @@ void ServerSocket::PerformIO() {
   if (!HasSocket()) {
     return;
   }
-  const auto status = PlatformEthernet::SocketStatus(sock_num_);
-  const bool is_open = PlatformEthernet::StatusIsOpen(status);
+  const auto status = PlatformNetwork::SocketStatus(sock_num_);
+  const bool is_open = PlatformNetwork::StatusIsOpen(status);
   const auto past_status = last_status_;
-  const bool was_open = PlatformEthernet::StatusIsOpen(past_status);
+  const bool was_open = PlatformNetwork::StatusIsOpen(past_status);
 
   last_status_ = status;
 
@@ -211,7 +211,7 @@ void ServerSocket::PerformIO() {
     case SnSR::LAST_ACK:
       // Transient states after the connection is closed, but before the final
       // cleanup is complete.
-      MCU_DCHECK(was_open || PlatformEthernet::StatusIsClosing(past_status))
+      MCU_DCHECK(was_open || PlatformNetwork::StatusIsClosing(past_status))
           << STATUS_IS_UNEXPECTED_MESSAGE("a closing value", past_status,
                                           status);
 
@@ -317,7 +317,7 @@ void ServerSocket::DetectListenerInitiatedDisconnect() {
   MCU_VLOG(9) << MCU_FLASHSTR("DetectListenerInitiatedDisconnect ")
               << MCU_FLASHSTR("disconnected=") << disconnect_data_.disconnected;
   if (disconnect_data_.disconnected) {
-    auto new_status = PlatformEthernet::SocketStatus(sock_num_);
+    auto new_status = PlatformNetwork::SocketStatus(sock_num_);
     MCU_VLOG(2) << MCU_FLASHSTR("DetectListenerInitiatedDisconnect")
                 << mcucore::BaseHex << MCU_FLASHSTR(" last_status=")
                 << last_status_ << MCU_FLASHSTR(" new_status=") << new_status;
@@ -338,8 +338,8 @@ void ServerSocket::CloseHardwareSocket() {
   MCU_VLOG(2) << MCU_FLASHSTR("CloseHardwareSocket")
               << MCU_FLASHSTR(" last_status=") << mcucore::BaseHex
               << last_status_;
-  PlatformEthernet::CloseSocket(sock_num_);
-  last_status_ = PlatformEthernet::SocketStatus(sock_num_);
+  PlatformNetwork::CloseSocket(sock_num_);
+  last_status_ = PlatformNetwork::SocketStatus(sock_num_);
   MCU_DCHECK_EQ(last_status_, SnSR::CLOSED);
 }
 

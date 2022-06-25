@@ -1,10 +1,13 @@
 # Libraries intended to simplify the task of writing tests of McuNet.
 
 cc_library(
-    name = "fake_platform_ethernet",
+    name = "fake_platform_network",
     testonly = True,
-    hdrs = ["fake_platform_ethernet.h"],
-    deps = ["//mcunet/src:platform_ethernet"],
+    hdrs = ["fake_platform_network.h"],
+    deps = [
+        "//mcunet/src:platform_network",
+        "//mcunet/src:platform_network_interface",
+    ],
 )
 
 cc_library(
