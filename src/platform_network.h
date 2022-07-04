@@ -40,13 +40,6 @@
 namespace mcunet {
 
 struct PlatformNetwork {
-#if MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
-  // For host targets, this method allows us to choose between a host sockets
-  // implementation and a mock implementation supporting testing.
-  static void SetPlatformNetworkImplementation(
-      PlatformNetworkInterface* platform_network);
-#endif  // MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
-
 #ifdef MCUNET_PNAPI_METHOD
 #error "MCUNET_PNAPI_METHOD should not be defined!!"
 #endif

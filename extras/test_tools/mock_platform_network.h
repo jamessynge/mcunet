@@ -19,16 +19,6 @@ class MockPlatformNetwork : public PlatformNetworkInterface {
 #undef MCUNET_PNAPI_METHOD
 };
 
-class MockPlatformNetworkInstaller : public MockPlatformNetwork {
- public:
-  MockPlatformNetworkInstaller() {
-    PlatformNetwork::SetPlatformNetworkImplementation(this);
-  }
-  ~MockPlatformNetworkInstaller() override {
-    PlatformNetwork::SetPlatformNetworkImplementation(nullptr);
-  }
-};
-
 }  // namespace test
 }  // namespace mcunet
 

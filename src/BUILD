@@ -143,7 +143,11 @@ cc_library(
     srcs = ["platform_network_interface.cc"],
     hdrs = ["platform_network_interface.h"],
     textual_hdrs = ["platform_network_api.cc.inc"],
-    deps = ["//mcucore/src:mcucore_platform"],
+    deps = [
+        ":mcunet_config",
+        "//mcucore/src:logging",
+        "//mcucore/src:mcucore_platform",
+    ],
 )
 
 cc_library(

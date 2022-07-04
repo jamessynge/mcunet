@@ -5,18 +5,8 @@
 namespace mcunet {
 
 #if MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
-namespace {
-PlatformNetworkInterface* g_platform_network = nullptr;
-}  // namespace
-
-void PlatformNetwork::SetPlatformNetworkImplementation(
-    PlatformNetworkInterface* platform_network) {
-  g_platform_network = platform_network;
-}
-
-#define CALL_PNAPI_METHOD(NAME, ARGS)                               \
-  MCU_CHECK_NE(g_platform_network, nullptr) << MCU_FLASHSTR(#NAME); \
-  return g_platform_network->NAME ARGS;
+#define CALL_PNAPI_METHOD(NAME, ARGS) \
+  return PlatformNetworkInterface::GetImplementationOrDie()->NAME ARGS;
 
 #endif  // MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
 
