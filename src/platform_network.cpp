@@ -72,8 +72,7 @@ bool PlatformNetwork::SocketIsHalfClosed(uint8_t sock_num) {
 #if MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
   CALL_PNAPI_METHOD(SocketIsHalfClosed, (sock_num));
 #else   // !MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
-  return EthernetClass::_server_port[sock_num] == tcp_port &&
-         SocketStatus(sock_num) == SnSR::LISTEN;
+  return SocketStatus(sock_num) == SnSR::CLOSE_WAIT;
 #endif  // MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
 }
 
@@ -82,8 +81,7 @@ bool PlatformNetwork::SocketIsClosed(uint8_t sock_num) {
 #if MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
   CALL_PNAPI_METHOD(SocketIsClosed, (sock_num));
 #else   // !MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
-  EthernetClient client(sock_num);
-  return client.status() == SnSR::CLOSED;
+  return SocketStatus(sock_num) == SnSR::CLOSED;
 #endif  // MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
 }
 
@@ -105,8 +103,7 @@ bool PlatformNetwork::InitializeTcpListenerSocket(uint8_t sock_num,
   CALL_PNAPI_METHOD(InitializeTcpListenerSocket, (sock_num, tcp_port));
 #else   // !MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
   MCU_DCHECK_LT(sock_num, MAX_SOCK_NUM);
-  EthernetClient client(sock_num);
-  const auto status = client.status();
+  const auto status = SocketStatus(sock_num);
   // EthernetClass::_server_port is the port that a socket is listening to.
   MCU_VLOG(3) << MCU_FLASHSTR("PlatformNetwork::InitializeTcpListenerSocket(")
               << sock_num << MCU_FLASHSTR(", ") << tcp_port
