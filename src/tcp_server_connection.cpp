@@ -53,11 +53,7 @@ void TcpServerConnection::close() {
   disconnect_data_.RecordDisconnect();
 }
 
-bool TcpServerConnection::connected() const { return client_.connected(); }
-
-bool TcpServerConnection::peer_half_closed() const {
-  return PlatformNetwork::StatusIsHalfOpen(sock_num());
-}
+uint8_t TcpServerConnection::connected() { return client_.connected(); }
 
 uint8_t TcpServerConnection::sock_num() const {
   return client_.getSocketNumber();

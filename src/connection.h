@@ -31,51 +31,37 @@ class Connection : public Stream {
   // Close the connection (fully, not half-closed).
   virtual void close() = 0;
 
-  // Returns true if the connection is either readable or writeable.
-  virtual bool connected() const = 0;
-
-  // Returns true if the peer (e.g. client of the server) half-closed its
-  // connection for writing (e.g. by calling shutdown(fd, SHUT_WR), but is
-  // waiting for us to write. This is apparently now an unlikely state because
-  // clients won't typically close until they've read the full response. See
-  // https://www.excentis.com/blog/tcp-half-close-cool-feature-now-broken.
-  virtual bool peer_half_closed() const = 0;
+  // Returns true (non-zero) if the connection is either readable or writeable,
+  // else returns false (zero). The return type is uint8_t, instead of bool,
+  // simply because that is the return type of Arduino's Client::connected()
+  // method. The same applies to the lack of a const qualifier on the method.
+  virtual uint8_t connected() = 0;
 
   // Reads up to 'size' bytes into buf, stopping early if there are no more
   // bytes available to read from the connection. Returns the number of bytes
-  // read. The default implementation uses `int Stream::read()` to read one byte
-  // at a time.
-  virtual size_t read(uint8_t *buf, size_t size);
+  // read, if any; if the peer has closed their side for writing (half-closed),
+  // then 0 is returned to indicate EOF; if no bytes are available currently on
+  // a fully open connection, then -1 is returned.
+  //
+  // The default implementation uses `int Stream::read()` to read one byte at a
+  // time, but ideally a subclass overrides it with a more efficient
+  // implementation.
+  virtual int read(uint8_t *buf, size_t size);
 
+  // Declare the base class `int read()` method in this class, so that read is
+  // an overloaded method name in this class, rather than the prior method being
+  // an override.
   using Stream::read;
 
   // Returns the hardware socket number of this connection. This is exposed
   // primarily to support debugging.
   virtual uint8_t sock_num() const = 0;
 
-  // Returns true if there is a write error or if the connection is broken.
-  virtual bool hasWriteError();
-};
+  // Returns true if there is a write error has been recorded.
+  virtual bool HasWriteError();
 
-// An abstract implementation of Connection that delegates to a Client instance
-// provided by a subclass. To produce a concrete instance, some subclass will
-// also need to implement the public methods close() and connected(), and the
-// protected method client().
-// TODO(jamessynge): Determine whether this should be retained. It has been
-// superceded by WriteBufferedWrappedClientConnection.
-class WrappedClientConnection : public Connection {
- public:
-  size_t write(uint8_t b) override;
-  size_t write(const uint8_t *buf, size_t size) override;
-  int availableForWrite() override;
-  int available() override;
-  int read() override;
-  size_t read(uint8_t *buf, size_t size) override;
-  int peek() override;
-  void flush() override;
-
- protected:
-  virtual Client &client() const = 0;
+  // Returns true if there is no write error recorded and connected() is true.
+  virtual bool IsOkToWrite();
 };
 
 // An abstract implementation of Connection that delegates to a Client instance
@@ -87,7 +73,6 @@ class WrappedClientConnection : public Connection {
 // the optimal size of the buffer, nor have I investigated performing any kind
 // of async SPI... it doesn't seem necessary for Tiny Alpaca Server and would
 // require more buffer management.
-// TODO(jamessynge): Consider shortening the name of this class. It's unwieldy.
 class WriteBufferedWrappedClientConnection : public Connection {
  public:
   WriteBufferedWrappedClientConnection(uint8_t *write_buffer,
@@ -98,9 +83,12 @@ class WriteBufferedWrappedClientConnection : public Connection {
   int availableForWrite() override;
   int available() override;
   int read() override;
-  size_t read(uint8_t *buf, size_t size) override;
+  int read(uint8_t *buf, size_t size) override;
   int peek() override;
   void flush() override;
+  uint8_t connected() override;
+  bool HasWriteError() override;
+  bool IsOkToWrite() override;
 
  protected:
   virtual Client &client() const = 0;
@@ -108,6 +96,7 @@ class WriteBufferedWrappedClientConnection : public Connection {
 
  private:
   void FlushIfFull();
+  size_t WriteToClient(const uint8_t *buf, size_t size);
 
   uint8_t *const write_buffer_;
   const uint8_t write_buffer_limit_;

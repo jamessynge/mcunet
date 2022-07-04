@@ -7,8 +7,11 @@ namespace mcunet {
 
 Connection::~Connection() {}
 
-size_t Connection::read(uint8_t *buf, size_t size) {
-  size_t result = 0;
+int Connection::read(uint8_t *buf, size_t size) {
+  // This is a debug only check because our embedded systems are exceedingly
+  // unlikely to have enough RAM to exceed this size.
+  MCU_DCHECK_LE(size, mcucore::numeric_limits<int>::max());
+  int result = 0;
   while (size > 0) {
     int c = read();
     if (c < 0) {
@@ -23,37 +26,9 @@ size_t Connection::read(uint8_t *buf, size_t size) {
   return result;
 }
 
-bool Connection::hasWriteError() {
-  return getWriteError() != 0 || !connected();
-}
+bool Connection::HasWriteError() { return getWriteError() != 0; }
 
-size_t WrappedClientConnection::write(uint8_t b) { return client().write(b); }
-size_t WrappedClientConnection::write(const uint8_t *buf, size_t size) {
-  return client().write(buf, size);
-}
-int WrappedClientConnection::availableForWrite() {
-  if (connected()) {
-    return client().availableForWrite();
-  }
-  return -1;
-}
-int WrappedClientConnection::available() {
-  if (connected()) {
-    return client().available();
-  }
-  return -1;
-}
-int WrappedClientConnection::read() { return client().read(); }
-size_t WrappedClientConnection::read(uint8_t *buf, size_t size) {
-  int result = client().read(buf, size);
-  if (result >= 0) {
-    return result;
-  } else {
-    return 0;
-  }
-}
-int WrappedClientConnection::peek() { return client().peek(); }
-void WrappedClientConnection::flush() { return client().flush(); }
+bool Connection::IsOkToWrite() { return getWriteError() == 0 && connected(); }
 
 WriteBufferedWrappedClientConnection::WriteBufferedWrappedClientConnection(
     uint8_t *write_buffer, uint8_t write_buffer_limit)
@@ -63,13 +38,13 @@ WriteBufferedWrappedClientConnection::WriteBufferedWrappedClientConnection(
   MCU_DCHECK(write_buffer != nullptr);
   MCU_DCHECK(write_buffer_limit > 0);
 }
+
 size_t WriteBufferedWrappedClientConnection::write(uint8_t b) {
-  if (write_buffer_size_ >= write_buffer_limit_) {
-    flush();
-  }
+  FlushIfFull();
   write_buffer_[write_buffer_size_++] = b;
   return 1;
 }
+
 size_t WriteBufferedWrappedClientConnection::write(const uint8_t *buf,
                                                    const size_t size) {
   // buf should not overlap with write_buffer_.
@@ -78,10 +53,17 @@ size_t WriteBufferedWrappedClientConnection::write(const uint8_t *buf,
       << mcucore::BaseHex << buf << ' ' << size << ' ' << write_buffer_ << ' '
       << write_buffer_limit_;
 
-  // NOTE: Avoiding checking for hasWriteError, and leaving that up to
-  // a caller. Also avoiding optimizing for long strings, just appending
-  // to the write buffer multiple times if necessary, with flushes in
-  // between.
+  if (write_buffer_size_ + size >= write_buffer_limit_ * 2) {
+    // We'll have to do at least two flushes, maybe more, if we use the code
+    // below, so this optimization limits us to two writes to the underlying
+    // client (this assumes the underlying client doesn't break our writes up
+    // into pieces).
+    flush();
+    if (IsOkToWrite()) {
+      return WriteToClient(write_buffer_, write_buffer_size_);
+    }
+  }
+
   FlushIfFull();
   size_t remaining = size;
   while (remaining > 0) {
@@ -98,60 +80,101 @@ size_t WriteBufferedWrappedClientConnection::write(const uint8_t *buf,
   }
   return size;
 }
+
 int WriteBufferedWrappedClientConnection::availableForWrite() {
   if (connected()) {
     return write_buffer_limit_ - write_buffer_size_;
   }
   return -1;
 }
+
 int WriteBufferedWrappedClientConnection::available() {
   if (connected()) {
     return client().available();
   }
   return -1;
 }
+
 int WriteBufferedWrappedClientConnection::read() { return client().read(); }
-size_t WriteBufferedWrappedClientConnection::read(uint8_t *buf, size_t size) {
-  int result = client().read(buf, size);
-  if (result >= 0) {
-    return result;
-  } else {
-    return 0;
-  }
+
+int WriteBufferedWrappedClientConnection::read(uint8_t *buf, size_t size) {
+  return client().read(buf, size);
 }
+
 int WriteBufferedWrappedClientConnection::peek() { return client().peek(); }
+
 void WriteBufferedWrappedClientConnection::flush() {
   if (write_buffer_size_ > 0) {
     MCU_VLOG(4) << MCU_FLASHSTR("write_buffer_size_=") << write_buffer_size_;
-    if (!hasWriteError()) {
-      MCU_VLOG(5) << MCU_FLASHSTR("hasWriteError=") << false;
-      auto cursor = write_buffer_;
-      auto remaining = write_buffer_size_;
-      while (true) {
-        auto wrote = client().write(cursor, remaining);
-        MCU_VLOG(4) << MCU_FLASHSTR("wrote=") << wrote;
-        MCU_DCHECK_LE(wrote, remaining);
-        if (wrote <= 0 || !client().connected()) {
-          setWriteError(1);
-          break;
-        }
-        if (wrote >= remaining) {
-          break;
-        }
-        cursor += wrote;
-        remaining -= wrote;
-      }
-    } else {
-      MCU_VLOG(3) << MCU_FLASHSTR("hasWriteError=") << true;
+    auto wrote = WriteToClient(write_buffer_, write_buffer_size_);
+    if (wrote == write_buffer_size_) {
+      write_buffer_size_ = 0;
+      return;
     }
-    write_buffer_size_ = 0;
-    return;
+    MCU_DCHECK(!IsOkToWrite())
+        << getWriteError() << ',' << client().getWriteError() << ','
+        << connected();
+    MCU_DCHECK_EQ(wrote, 0) << wrote;
   }
 }
+
+uint8_t WriteBufferedWrappedClientConnection::connected() {
+  return client().connected();
+}
+
+bool WriteBufferedWrappedClientConnection::HasWriteError() {
+  if (getWriteError() == 0 && client().getWriteError() != 0) {
+    setWriteError(client().getWriteError());
+  }
+  return getWriteError() != 0;
+}
+
+bool WriteBufferedWrappedClientConnection::IsOkToWrite() {
+  if (!HasWriteError() && !connected()) {
+    setWriteError(1);
+  }
+  return getWriteError() == 0;
+}
+
 void WriteBufferedWrappedClientConnection::FlushIfFull() {
   if (write_buffer_size_ >= write_buffer_limit_) {
     flush();
   }
+}
+
+size_t WriteBufferedWrappedClientConnection::WriteToClient(const uint8_t *buf,
+                                                           size_t size) {
+  MCU_DCHECK_NE(buf, nullptr);
+  MCU_DCHECK_NE(size, 0);
+
+  if (!IsOkToWrite()) {
+    MCU_VLOG(5) << MCU_FLASHSTR("!IsOkToWrite");
+
+    return 0;
+  }
+  size_t result = 0;
+  while (size > 0) {
+    auto wrote = client().write(buf, size);
+    MCU_VLOG(4) << MCU_FLASHSTR("write ") << size << MCU_FLASHSTR(", wrote ")
+                << wrote;
+    if (wrote == size) {
+      // This is the most likely situation on the very first pass through the
+      // loop.
+      return result + wrote;
+    } else if (wrote > 0) {
+      buf += wrote;
+      size -= wrote;
+      result += wrote;
+    } else {
+      // wrote == 0 implies an error, given that we're NOT using non-blocking
+      // writes (i.e. that isn't a feature of the Arduino Print class). While
+      // `result` bytes were successfully written, I'm assuming here that the
+      // caller doesn't need to know that.
+      setWriteError(1);
+      return 0;
+    }
+  }
+  return result;
 }
 
 }  // namespace mcunet

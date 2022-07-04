@@ -12,10 +12,10 @@
 namespace mcunet {
 namespace test {
 
-class FakePlatformEthernet : public PlatformNetworkInterface {
+class FakePlatformNetwork : public PlatformNetworkInterface {
  public:
-  FakePlatformEthernet() {}
-  ~FakePlatformEthernet() override {}
+  FakePlatformNetwork() {}
+  ~FakePlatformNetwork() override {}
 
 #ifdef MCUNET_PNAPI_METHOD
 #error "MCUNET_PNAPI_METHOD should not be defined!!"

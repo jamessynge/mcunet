@@ -26,11 +26,7 @@ class TcpServerConnection : public WriteBufferedWrappedClientConnection {
   void close() override;
 
   // Delegates to the wrapped client.
-  bool connected() const override;
-
-  // Queries PlatformEthernet to determine if the socket is half-open from our
-  // perspective, which would indicate that the peer half-closed their side.
-  bool peer_half_closed() const override;
+  uint8_t connected() override;
 
   // Delegates to the wrapped client.
   uint8_t sock_num() const override;

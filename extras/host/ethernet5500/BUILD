@@ -79,6 +79,27 @@ cc_library(
 )
 
 cc_library(
+    name = "host_network",
+    srcs = ["host_network.cc"],
+    hdrs = ["host_network.h"],
+    deps = [
+        ":host_socket_info",
+        "//absl/log",
+        "//absl/strings",
+        "//mcucore/src:logging",
+        "//mcunet/src:platform_network",
+        "//mcunet/src:platform_network_interface",
+    ],
+)
+
+cc_library(
+    name = "host_socket_info",
+    srcs = ["host_socket_info.cc"],
+    hdrs = ["host_socket_info.h"],
+    deps = ["//glog:logging"],
+)
+
+cc_library(
     name = "host_sockets",
     srcs = ["host_sockets.cc"],
     hdrs = ["host_sockets.h"],

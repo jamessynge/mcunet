@@ -32,6 +32,7 @@ cc_library(
     hdrs = ["connection.h"],
     deps = [
         ":platform_network",
+        "//mcucore/src:limits",
         "//mcucore/src:logging",
     ],
 )

@@ -11,6 +11,15 @@ cc_library(
 )
 
 cc_library(
+    name = "fake_write_buffered_connection",
+    hdrs = ["fake_write_buffered_connection.h"],
+    deps = [
+        "//mcunet/extras/host/arduino:client",
+        "//mcunet/src:connection",
+    ],
+)
+
+cc_library(
     name = "mock_client",
     testonly = True,
     hdrs = ["mock_client.h"],
@@ -41,6 +50,17 @@ cc_library(
 )
 
 cc_library(
+    name = "mock_platform_network",
+    testonly = True,
+    hdrs = ["mock_platform_network.h"],
+    deps = [
+        "//googletest:gunit_headers",
+        "//mcunet/src:platform_network",
+        "//mcunet/src:platform_network_interface",
+    ],
+)
+
+cc_library(
     name = "mock_socket_listener",
     testonly = True,
     hdrs = ["mock_socket_listener.h"],
@@ -51,16 +71,19 @@ cc_library(
 )
 
 cc_library(
-    name = "string_io_connection",
-    hdrs = ["string_io_connection.h"],
-    deps = ["//mcunet/src:connection"],
+    name = "string_io_stream_impl",
+    hdrs = ["string_io_stream_impl.h"],
+    deps = [
+        "//mcucore/extras/host/arduino:stream",
+        "//mcunet/src:connection",
+    ],
 )
 
 cc_test(
-    name = "string_io_connection_test",
-    srcs = ["string_io_connection_test.cc"],
+    name = "string_io_stream_impl_test",
+    srcs = ["string_io_stream_impl_test.cc"],
     deps = [
-        ":string_io_connection",
+        ":string_io_stream_impl",
         "//googletest:gunit_main",
     ],
 )

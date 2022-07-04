@@ -1,5 +1,56 @@
+// ISSUE: Is it reasonable to add some hardware setup methods, such as for the
+// maximum number of sockets; or even a query method to get the number of
+// hardware sockets.
+
 ////////////////////////////////////////////////////////////////////////////////
-// Methods modifying sockets.
+// Methods getting the status of a socket.
+
+// Finds a hardware socket that is closed, and returns its socket number.
+// Returns -1 if there is no such socket.
+MCUNET_PNAPI_METHOD(int, FindUnusedSocket, ());
+
+// Returns true if the hardware socket is listening for TCP connections.
+MCUNET_PNAPI_METHOD(bool, SocketIsTcpListener,
+                    (uint8_t sock_num, uint16_t tcp_port));
+
+// Returns true if the hardware socket is being used for TCP and is not
+// LISTENING; if so, then it is best not to repurpose the hardware socket.
+MCUNET_PNAPI_METHOD(bool, SocketIsInTcpConnectionLifecycle, (uint8_t sock_num));
+
+// Returns true if the peer has closed their end for writing, but we've still
+// got our end open for writing. This should not be true if there is still data
+// available for us to read (e.g. buffered at our end).
+//
+// With the Posix Socket API, a connection can be half-closed by calling
+//
+//    shutdown(fd, SHUT_WR)
+//
+// where fd is the socket's file descriptor.
+//
+// This may not occur much because:
+// a) HTTP client libraries aren't likely to half-close a connection while they
+//    still have a request in flight; instead they'll wait until they'd consumed
+//    the response before deciding the close the connection.
+// b) For WAN connections, various network appliances (e.g. NAT or firewall
+//    devices) may break half-closed connections in order to eliminate the
+//    table entries associated with connections they (erroneously?) treat as at
+//    the end of their lives. For more info, see:
+//      https://www.excentis.com/blog/tcp-half-close-cool-feature-now-broken
+MCUNET_PNAPI_METHOD(bool, SocketIsHalfClosed, (uint8_t sock_num));
+
+// Returns true if the socket is completely closed (not in use for any purpose).
+MCUNET_PNAPI_METHOD(bool, SocketIsClosed, (uint8_t sock_num));
+
+// Returns the implementation defined status value for the specified socket.
+// TODO(jamessynge): Try to eliminate this method, and the methods such as
+// StatusIsOpen below, with the aim of not exposing application code to
+// hardware/implementation specific status types and values.
+MCUNET_PNAPI_METHOD(uint8_t, SocketStatus, (uint8_t sock_num));
+
+////////////////////////////////////////////////////////////////////////////////
+// Methods modifying sockets. So far these are all related to being a TCP
+// server, but eventually there should be methods for being a client, for UDP,
+// and of course for reading and writing data.
 
 // Set socket 'sock_num' to listen for new TCP connections on port 'tcp_port',
 // regardless of what that socket is doing now. Returns true if able to do so;
@@ -14,28 +65,20 @@ MCUNET_PNAPI_METHOD(bool, DisconnectSocket, (uint8_t sock_num));
 MCUNET_PNAPI_METHOD(bool, CloseSocket, (uint8_t sock_num));
 
 ////////////////////////////////////////////////////////////////////////////////
-// Methods getting the status of a socket.
+// Methods using open sockets.
 
-// Finds a hardware socket that is closed, and returns its socket number.
-// Returns -1 if there is no such socket.
-MCUNET_PNAPI_METHOD(int, FindUnusedSocket, ());
+// Sends on an open connection. Returns the number of bytes sent, or -1 if an
+// error is encountered. Fewer than len bytes may be written under various
+// circumstances; for example, the W5500 library (copied in the Ethernet5500
+// library) imposes a 2048 byte limit.
+MCUNET_PNAPI_METHOD(ssize_t, Send,
+                    (uint8_t sock_num, const uint8_t* buf, size_t len));
 
-// Returns the implementation defined status value for the specified socket.
-// TODO(jamessynge): Try to eliminate this method, and the methods such as
-// StatusIsOpen below, with the aim of not exposing application code to
-// hardware/implementation specific status types and values.
-MCUNET_PNAPI_METHOD(uint8_t, SocketStatus, (uint8_t sock_num));
-
-// Returns true if the hardware socket is being used for TCP and is not
-// LISTENING; if so, then it is best not to repurpose the hardware socket.
-MCUNET_PNAPI_METHOD(bool, SocketIsInTcpConnectionLifecycle, (uint8_t sock_num));
-
-// Returns true if the hardware socket is listening for TCP connections.
-MCUNET_PNAPI_METHOD(bool, SocketIsTcpListener,
-                    (uint8_t sock_num, uint16_t tcp_port));
-
-// Returns true if the socket is completely closed (not in use for any purpose).
-MCUNET_PNAPI_METHOD(bool, SocketIsClosed, (uint8_t sock_num));
+// Receives from an open connection. Returns the number of bytes received and
+// copied into the buffer; if an error occurred, -1 is returned; if the peer has
+// performed an orderly shutdown of writing, then 0 is returned, indicating EOF.
+MCUNET_PNAPI_METHOD(ssize_t, Recv,
+                    (uint8_t sock_num, uint8_t* buf, size_t len));
 
 ////////////////////////////////////////////////////////////////////////////////
 // Methods for checking the interpretation of the status value.
@@ -49,11 +92,7 @@ MCUNET_PNAPI_METHOD(bool, SocketIsClosed, (uint8_t sock_num));
 MCUNET_PNAPI_METHOD(bool, StatusIsOpen, (uint8_t status));
 
 // Returns true if the status indicates that the TCP connection is half-open.
-// TODO(jamessynge): Rename this to StatusIsHalfClosed or StatusPeerHasClosed;
-// half-open refers to a state during the 3-way handshake when opening a
-// connection, but this is intended to cover the case where the peer has half
-// closed the connection, indicating that they won't write any more data.
-MCUNET_PNAPI_METHOD(bool, StatusIsHalfOpen, (uint8_t status));
+MCUNET_PNAPI_METHOD(bool, StatusIsHalfClosed, (uint8_t status));
 
 // Returns true if the status indicates that the TCP connection is in the
 // process of closing (e.g. FIN_WAIT).

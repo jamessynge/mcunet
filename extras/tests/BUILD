@@ -16,6 +16,19 @@ cc_test(
 )
 
 cc_test(
+    name = "connection_test",
+    srcs = ["connection_test.cc"],
+    deps = [
+        "//googletest:gunit_main",
+        "//mcucore/extras/test_tools:print_to_std_string",
+        "//mcucore/extras/test_tools:print_value_to_std_string",
+        "//mcucore/extras/test_tools:sample_printable",
+        "//mcunet/extras/test_tools:string_io_stream_impl",
+        "//mcunet/src:connection",
+    ],
+)
+
+cc_test(
     name = "ethernet_address_test",
     srcs = ["ethernet_address_test.cc"],
     deps = [

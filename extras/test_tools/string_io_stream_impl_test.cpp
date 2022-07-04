@@ -1,4 +1,4 @@
-#include "extras/test_tools/string_io_connection.h"
+#include "extras/test_tools/string_io_stream_impl.h"
 
 #include <stdint.h>
 
@@ -8,18 +8,22 @@ namespace mcunet {
 namespace test {
 namespace {
 
-TEST(StringIoConnectionTest, DoNothing) {
-  StringIoConnection conn(3, "", false);
+template <typename T>
+class StringIoStreamTest : public testing::Test {};
+
+TYPED_TEST_SUITE_P(StringIoStreamTest);
+
+TYPED_TEST_P(StringIoStreamTest, DoNothing) {
+  StringIoStream conn(3, "");
   EXPECT_TRUE(conn.connected());
   EXPECT_EQ(conn.sock_num(), 3);
   EXPECT_EQ(conn.available(), 0);
   EXPECT_EQ(conn.remaining_input(), "");
   EXPECT_EQ(conn.output(), "");
-  EXPECT_FALSE(conn.peer_half_closed());
 }
 
-TEST(StringIoConnectionTest, WriteAndReadAndClose) {
-  StringIoConnection conn(1, "DEFG", false);
+TYPED_TEST_P(StringIoStreamTest, WriteAndReadAndClose) {
+  StringIoStream conn(1, "DEFG");
 
   EXPECT_EQ(conn.print("ab"), 2);
   EXPECT_EQ(conn.print("cd"), 2);
@@ -48,8 +52,8 @@ TEST(StringIoConnectionTest, WriteAndReadAndClose) {
   EXPECT_EQ(conn.output(), "abcd");
 }
 
-TEST(StringIoConnectionTest, ReadAll) {
-  StringIoConnection conn(1, "DEFG", false);
+TYPED_TEST_P(StringIoStreamTest, ReadAll) {
+  StringIoStream conn(1, "DEFG");
 
   EXPECT_EQ(conn.available(), 4);
   uint8_t buf[10] = {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '};
@@ -60,23 +64,15 @@ TEST(StringIoConnectionTest, ReadAll) {
   EXPECT_EQ(buf[3], 'G');
   EXPECT_EQ(buf[4], ' ');
   EXPECT_EQ(conn.available(), 0);
-  EXPECT_FALSE(conn.peer_half_closed());
 }
 
-TEST(StringIoConnectionTest, ReadAllHalfClosed) {
-  StringIoConnection conn(1, "DEFG", true);
+REGISTER_TYPED_TEST_SUITE_P(StringIoStreamTest, DoNothing, WriteAndReadAndClose,
+                            ReadAll);
 
-  EXPECT_EQ(conn.available(), 4);
-  uint8_t buf[10] = {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '};
-  EXPECT_EQ(conn.read(buf, 10), 4);
-  EXPECT_EQ(buf[0], 'D');
-  EXPECT_EQ(buf[1], 'E');
-  EXPECT_EQ(buf[2], 'F');
-  EXPECT_EQ(buf[3], 'G');
-  EXPECT_EQ(buf[4], ' ');
-  EXPECT_EQ(conn.available(), 0);
-  EXPECT_TRUE(conn.peer_half_closed());
-}
+INSTANTIATE_TYPED_TEST_SUITE_P(ForStream, StringIoStreamTest, StringIoStream);
+INSTANTIATE_TYPED_TEST_SUITE_P(ForClient, StringIoStreamTest, StringIoClient);
+INSTANTIATE_TYPED_TEST_SUITE_P(ForConnection, StringIoStreamTest,
+                               StringIoConnection);
 
 }  // namespace
 }  // namespace test
