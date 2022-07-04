@@ -7,11 +7,11 @@
 
 #include <McuCore.h>
 
-#include <memory>
-
 #include "mcunet_config.h"
 
 #if MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
+
+#include <memory>  // pragma: keep standard include
 
 namespace mcunet {
 
