@@ -31,13 +31,20 @@ HostSocketInfo::~HostSocketInfo() {
 }
 
 bool HostSocketInfo::IsUnused() {
-  return listener_socket_fd_ < 0 && connection_socket_fd_ < 0 && tcp_port_ == 0;
+  VLOG(1) << "HostSocketInfo::IsUnused " << sock_num_ << ", "
+          << listener_socket_fd_ << ", " << tcp_port_ << ", "
+          << connection_socket_fd_;
+  return listener_socket_fd_ < 0 && connection_socket_fd_ < 0;
 }
 
-bool HostSocketInfo::IsTcpListener(uint16_t tcp_port) {
-  return listener_socket_fd_ >= 0 &&
-         ((tcp_port != 0 && tcp_port_ == tcp_port) ||
-          (tcp_port == 0 && tcp_port_ != 0));
+uint16_t HostSocketInfo::IsTcpListener() {
+  if (listener_socket_fd_ >= 0) {
+    CHECK_GT(tcp_port_, 0);
+    return tcp_port_;
+  } else {
+    CHECK_EQ(tcp_port_, 0);
+    return 0;
+  }
 }
 
 bool HostSocketInfo::IsConnected() { return connection_socket_fd_ >= 0; }
@@ -93,20 +100,6 @@ bool HostSocketInfo::CanReadFromConnection() {
       }
     }
   }
-}
-
-int HostSocketInfo::AvailableBytes() {
-  if (connection_socket_fd_ >= 0) {
-    int bytes_available;
-    if (ioctl(connection_socket_fd_, FIONREAD, &bytes_available) == 0) {
-      return bytes_available;
-    } else {
-      const auto error_number = errno;
-      LOG(WARNING) << "AvailableBytes: got errno " << error_number
-                   << " reading FIONREAD, " << std::strerror(error_number);
-    }
-  }
-  return 0;
 }
 
 bool HostSocketInfo::IsClosed() {
@@ -195,10 +188,13 @@ bool HostSocketInfo::AcceptConnection() {
     if (connection_socket_fd_ >= 0) {
       VLOG(1) << "Accepted a connection for socket " << sock_num_ << " with fd "
               << connection_socket_fd_;
-      if (!SetNonBlocking(listener_socket_fd_)) {
-        LOG(WARNING) << "Unable to make connection non-blocking for socket "
-                     << sock_num_;
-      }
+
+      // We leave the connection as blocking so that Send can be blocking, while
+      // Recv can be non-blocking by passing MSG_DONTWAIT.
+      // if (!SetNonBlocking(listener_socket_fd_)) {
+      //   LOG(WARNING) << "Unable to make connection non-blocking for socket "
+      //                << sock_num_;
+      // }
       // The W5500 doesn't keep track of that fact that the socket used to be
       // listening, so to be a better emulation of its behavior, we now close
       // the listener socket, and will re-open it later if requested.
@@ -273,6 +269,44 @@ ssize_t HostSocketInfo::Send(const uint8_t* buf, size_t len) {
     return -1;
   }
   return ::send(connection_socket_fd_, buf, len, 0);
+}
+
+void HostSocketInfo::Flush() {
+  if (connection_socket_fd_ < 0) {
+    LOG(WARNING) << "Socket doesn't have an open connection.";
+  }
+  // There is no linux method for flushing a socket.
+}
+
+ssize_t HostSocketInfo::AvailableBytes() {
+  if (connection_socket_fd_ < 0) {
+    LOG(WARNING) << "Socket doesn't have an open connection.";
+    return -1;
+  }
+  // There isn't a portable way to determine the number bytes available for
+  // reading, so we peek and see if we can read at least a fixed number of
+  // bytes, a number that is larger than a small embedded system is likely to
+  // have available in a single buffer.
+  uint8_t buffer[1000];
+  return ::recv(connection_socket_fd_, buffer, sizeof buffer,
+                MSG_DONTWAIT | MSG_PEEK);
+}
+
+int HostSocketInfo::Peek() {
+  if (connection_socket_fd_ < 0) {
+    LOG(WARNING) << "Socket doesn't have an open connection.";
+    return -1;
+  }
+  // There isn't a portable way to determine the number bytes available for
+  // reading, so we peek and see if we can read at least a fixed number of
+  // bytes, a number that is larger than a small embedded system is likely to
+  // have available in a single buffer.
+  uint8_t value;
+  if (::recv(connection_socket_fd_, &value, 1, MSG_DONTWAIT | MSG_PEEK) == 1) {
+    return value;
+  } else {
+    return -1;
+  }
 }
 
 ssize_t HostSocketInfo::Recv(uint8_t* buf, size_t len) {

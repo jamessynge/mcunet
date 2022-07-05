@@ -33,3 +33,19 @@ cc_test(
         "//mcunet/extras/host/ethernet5500:host_socket_info",
     ],
 )
+
+cc_binary(
+    name = "verify_host_network",
+    srcs = ["verify_host_network.cc"],
+    deps = [
+        "//absl/flags:flag",
+        "//absl/log",
+        "//absl/log:check",
+        "//absl/time",
+        "//base",
+        "//mcunet/extras/host/ethernet5500:ethernet_config",
+        "//mcunet/extras/host/ethernet5500:host_network",
+        "//mcunet/src:platform_network_interface",
+        "//util/debuginfo:signalsafe_addr2line_installer",
+    ],
+)

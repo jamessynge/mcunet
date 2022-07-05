@@ -1,45 +1,87 @@
 #include "extras/host/ethernet5500/ethernet_client.h"
 
-#include "extras/host/ethernet5500/ethernet_config.h"
-#include "extras/host/ethernet5500/host_sockets.h"
-#include "extras/host/ethernet5500/w5500.h"
+#include <McuCore.h>
 
-using ::mcunet_host::HostSockets;
+#include "absl/log/check.h"
+#include "absl/log/log.h"
+#include "platform_network_interface.h"
+
+// using ::mcunet_host::HostSockets;
+
+using ::mcunet::PlatformNetworkInterface;
 
 EthernetClient::EthernetClient(uint8_t sock) : sock_(sock) {}
 
-int EthernetClient::connect(IPAddress ip, uint16_t port) { return 0; }
-int EthernetClient::connect(const char *host, uint16_t port) { return 0; }
+int EthernetClient::connect(IPAddress ip, uint16_t port) {
+  CHECK(false) << "EthernetClient::connect Unimplemented";
+  return 0;
+}
 
-// Returns the status of the socket, from the Socket n Status Register.
-uint8_t EthernetClient::status() { return HostSockets::SocketStatus(sock_); }
+int EthernetClient::connect(const char *host, uint16_t port) {
+  CHECK(false) << "EthernetClient::connect Unimplemented";
+  return 0;
+}
 
-// Write a byte to the stream, returns the number written.
-size_t EthernetClient::write(uint8_t) { return 0; }
+uint8_t EthernetClient::status() {
+  return PlatformNetworkInterface::GetImplementationOrDie()->SocketStatus(
+      sock_);
+}
 
-// Write 'size' bytes from the buffer to the stream, returns the number
-// written. Note that Ethernet5500 takes a blocking approach, looping until
-// there are 'size' bytes in the TX buffers available (with 'size' capped to the
-// maximum send size allowed).
-size_t EthernetClient::write(const uint8_t *buf, size_t size) { return 0; }
+size_t EthernetClient::write(uint8_t value) {
+  return PlatformNetworkInterface::GetImplementationOrDie()->Send(sock_, &value,
+                                                                  1);
+}
+
+size_t EthernetClient::write(const uint8_t *buf, size_t size) {
+  if (size > 2048) {
+    size = 2048;
+  }
+  return PlatformNetworkInterface::GetImplementationOrDie()->Send(sock_, buf,
+                                                                  size);
+}
 
 // Returns the number of bytes available for reading. It may not be possible
 // to read that many bytes in one call to read.
-int EthernetClient::available() { return HostSockets::AvailableBytes(sock_); }
+int EthernetClient::available() {
+  return PlatformNetworkInterface::GetImplementationOrDie()->AvailableBytes(
+      sock_);
+}
 
 // Read one byte from the stream.
-int EthernetClient::read() { return 0; }
+int EthernetClient::read() {
+  uint8_t value;
+  if (PlatformNetworkInterface::GetImplementationOrDie()->Recv(sock_, &value,
+                                                               1) > 0) {
+    return value;
+  } else {
+    return -1;
+  }
+}
 
 // Read up to 'size' bytes from the stream, returns the number read.
-int EthernetClient::read(uint8_t *buf, size_t size) { return 0; }
+int EthernetClient::read(uint8_t *buf, size_t size) {
+  return PlatformNetworkInterface::GetImplementationOrDie()->Recv(sock_, buf,
+                                                                  size);
+}
 
 // Returns the next available byte/
-int EthernetClient::peek() { return 0; }
+int EthernetClient::peek() {
+  return PlatformNetworkInterface::GetImplementationOrDie()->Peek(sock_);
+}
 
-void EthernetClient::flush() {}
-void EthernetClient::stop() {}
+void EthernetClient::flush() {
+  return PlatformNetworkInterface::GetImplementationOrDie()->Flush(sock_);
+}
+
+void EthernetClient::stop() {
+  if (!PlatformNetworkInterface::GetImplementationOrDie()->CloseSocket(sock_)) {
+    VLOG(1) << "EthernetClient::stop failed";
+  }
+}
+
 uint8_t EthernetClient::connected() {
-  return status() == SnSR::ESTABLISHED || status() == SnSR::CLOSE_WAIT;
+  return PlatformNetworkInterface::GetImplementationOrDie()
+      ->SocketIsInTcpConnectionLifecycle(sock_);
 }
 
 EthernetClient::operator bool() { return connected() != 0; }

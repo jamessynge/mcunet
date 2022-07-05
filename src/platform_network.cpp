@@ -1,6 +1,7 @@
 #include "platform_network.h"
 
 #include <McuCore.h>
+#include <stdint.h>
 
 namespace mcunet {
 
@@ -26,13 +27,15 @@ int PlatformNetwork::FindUnusedSocket() {
 #endif
 }
 
-bool PlatformNetwork::SocketIsTcpListener(uint8_t sock_num, uint16_t tcp_port) {
+uint16_t PlatformNetwork::SocketIsTcpListener(uint8_t sock_num) {
   MCU_DCHECK_LT(sock_num, MAX_SOCK_NUM);
 #if MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
-  CALL_PNAPI_METHOD(SocketIsTcpListener, (sock_num, tcp_port));
+  CALL_PNAPI_METHOD(SocketIsTcpListener, (sock_num));
 #else   // !MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
-  return EthernetClass::_server_port[sock_num] == tcp_port &&
-         SocketStatus(sock_num) == SnSR::LISTEN;
+  if (SocketStatus(sock_num) == SnSR::LISTEN) {
+    return EthernetClass::_server_port[sock_num];
+  }
+  return 0;
 #endif  // MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
 }
 
@@ -123,6 +126,18 @@ bool PlatformNetwork::InitializeTcpListenerSocket(uint8_t sock_num,
 #endif  // MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
 }
 
+bool PlatformNetwork::AcceptConnection(uint8_t sock_num) {
+  MCU_DCHECK_LT(sock_num, MAX_SOCK_NUM);
+#if MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
+  CALL_PNAPI_METHOD(AcceptConnection, (sock_num));
+#else   // !MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
+  // There really isn't any need to call this method when using a W5500.
+  MCU_VLOG(3) << MCU_FLASHSTR(
+      "PlatformNetwork::AcceptConnection called unexpectedly");
+  return false;
+#endif  // MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
+}
+
 bool PlatformNetwork::DisconnectSocket(uint8_t sock_num) {
   MCU_DCHECK_LT(sock_num, MAX_SOCK_NUM);
 #if MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
@@ -153,6 +168,36 @@ ssize_t PlatformNetwork::Send(uint8_t sock_num, const uint8_t* buf,
   CALL_PNAPI_METHOD(Send, (sock_num, buf, len));
 #else   // !MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
   return ::send(sock_num, buf, len);
+#endif  // MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
+}
+
+void PlatformNetwork::Flush(uint8_t sock_num) {
+  MCU_DCHECK_LT(sock_num, MAX_SOCK_NUM);
+#if MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
+  CALL_PNAPI_METHOD(Flush, (sock_num));
+#else   // !MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
+  EthernetClient client(sock_num);
+  return client.flush();
+#endif  // MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
+}
+
+ssize_t PlatformNetwork::AvailableBytes(uint8_t sock_num) {
+  MCU_DCHECK_LT(sock_num, MAX_SOCK_NUM);
+#if MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
+  CALL_PNAPI_METHOD(AvailableBytes, (sock_num));
+#else   // !MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
+  EthernetClient client(sock_num);
+  return client.available();
+#endif  // MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
+}
+
+int PlatformNetwork::Peek(uint8_t sock_num) {
+  MCU_DCHECK_LT(sock_num, MAX_SOCK_NUM);
+#if MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
+  CALL_PNAPI_METHOD(Peek, (sock_num));
+#else   // !MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
+  EthernetClient client(sock_num);
+  return client.peek();
 #endif  // MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
 }
 

@@ -1,78 +1,94 @@
 #include "extras/host/ethernet5500/ethernet_server.h"
 
+#include <ios>
+
+#include "absl/log/check.h"
+#include "absl/log/log.h"
 #include "extras/host/ethernet5500/ethernet_class.h"
-#include "extras/host/ethernet5500/host_sockets.h"
 #include "extras/host/ethernet5500/w5500.h"
+#include "platform_network_interface.h"
 
-// The names of some Arduino macros are the same as those of symbols found in
-// useful libraries, interfering with their use (e.g. <limits> defines functions
-// called min and max). Where I find that to be the case, I undefine those
-// macros here.
-#undef abs
-#undef max
-#undef min
-#undef round
-
-#include "absl/time/clock.h"
-#include "absl/time/time.h"
-#include "glog/logging.h"
-
-using ::mcunet_host::HostSockets;
-
-EthernetServer::EthernetServer(uint16_t port) : port_(port) {}
+EthernetServer::EthernetServer(uint16_t port) : port_(port) {
+  CHECK_GT(port_, 0);
+}
 
 void EthernetServer::begin() {
-  VLOG(3) << "EthernetServer::begin entry";
-  auto sock_num = HostSockets::InitializeTcpListenerSocket(port_);
+  VLOG(3) << "EthernetServer::begin entry, port_ is " << port_;
+  auto* const platform_network =
+      mcunet::PlatformNetworkInterface::GetImplementationOrDie();
+  auto sock_num = platform_network->FindUnusedSocket();
   if (sock_num >= 0) {
-    EthernetClass::_server_port[sock_num] = port_;
+    VLOG(3) << "EthernetClass::_server_port[" << sock_num
+            << "] = " << EthernetClass::_server_port[sock_num];
+    if (platform_network->InitializeTcpListenerSocket(sock_num, port_)) {
+      EthernetClass::_server_port[sock_num] = port_;
+    } else {
+      LOG(ERROR) << "Unable to start listener for TCP port " << port_;
+    }
+    VLOG(3) << "EthernetClass::_server_port[" << sock_num
+            << "] = " << EthernetClass::_server_port[sock_num];
   } else {
-    LOG(WARNING) << "Unable to find a socket available for listening to port "
-                 << port_;
+    LOG(ERROR) << "Unable to find a socket available for listening to port "
+               << port_;
   }
   VLOG(3) << "EthernetServer::begin exit";
 }
 
 void EthernetServer::accept() {
-  VLOG(3) << "EthernetServer::accept() entry";
-  // Not the same as Berkeley Socket API's ::accept(). It basically cleans up if
-  // it finds that there are no sockets listening on port_ anymore. This is
-  // needed because the W5500 sockets don't remember that they used to be
-  // listening after a client connection is accepted.
+  VLOG(3) << "EthernetServer::accept() entry, port_ is " << port_;
+  auto* const platform_network =
+      mcunet::PlatformNetworkInterface::GetImplementationOrDie();
+  // Not the same as Berkeley Socket API's ::accept(). It basically takes care
+  // of accepting new connections for the specified port, if there are any,
+  // and it shuts down sockets where we've reached EOF reading from the client;
+  // this isn't a great behavior because it doesn't allow for the EOF to be a
+  // signal from the client that all the data has been sent, and the server
+  // should now send its response.
   int listening = 0;
-  for (int sock = 0; sock < MAX_SOCK_NUM; sock++) {
-    EthernetClient client(sock);
-    if (EthernetClass::_server_port[sock] == port_) {
+  for (int sock_num = 0; sock_num < MAX_SOCK_NUM; sock_num++) {
+    VLOG(3) << "EthernetClass::_server_port[" << sock_num
+            << "] = " << EthernetClass::_server_port[sock_num];
+    if (EthernetClass::_server_port[sock_num] == port_) {
+      EthernetClient client(sock_num);
       auto status = client.status();
-      VLOG(3) << "EthernetServer::accept found socket " << sock
+      VLOG(3) << "EthernetServer::accept found socket " << sock_num
               << " listening to port " << port_ << " with status " << std::hex
               << (status + 0);
       if (status == SnSR::LISTEN) {
         listening = 1;
+        if (platform_network->AcceptConnection(sock_num)) {
+          VLOG(3) << "Socket " << sock_num << " has received a connection.";
+        } else {
+          VLOG(3) << "Socket " << sock_num << " is listening.";
+        }
       } else if (status == SnSR::CLOSE_WAIT && !client.available()) {
-        VLOG(3) << "Socket " << sock
+        VLOG(3) << "Socket " << sock_num
                 << " half closed and there is no more data available.";
         client.stop();
       }
     }
   }
   if (!listening) {
-    VLOG(3) << "EthernetServer::accept no socket listening to port " << port_;
+    VLOG(3) << "EthernetServer::accept found no socket listening to port "
+            << port_
+            << "; will call EthernetServer::begin to find a free socket.";
     begin();
   }
   VLOG(3) << "EthernetServer::accept() exit";
 }
 
 EthernetClient EthernetServer::available() {
-  VLOG(3) << "EthernetServer::available() entry";
+  VLOG(3) << "EthernetServer::available() entry, port_ is " << port_;
   accept();
   VLOG(3) << "EthernetServer::available() loop entry";
-  for (int sock = 0; sock < MAX_SOCK_NUM; sock++) {
-    EthernetClient client(sock);
-    if (EthernetClass::_server_port[sock] == port_ &&
+  for (int sock_num = 0; sock_num < MAX_SOCK_NUM; sock_num++) {
+    VLOG(3) << "EthernetClass::_server_port[" << sock_num
+            << "] = " << EthernetClass::_server_port[sock_num];
+    EthernetClient client(sock_num);
+    if (EthernetClass::_server_port[sock_num] == port_ &&
         (client.status() == SnSR::ESTABLISHED ||
          client.status() == SnSR::CLOSE_WAIT)) {
-      VLOG(3) << "available: Socket " << sock
+      VLOG(3) << "available: Socket " << sock_num
               << " is serving a connection to port " << port_;
       if (client.available()) {
         // XXX: don't always pick the lowest numbered socket.

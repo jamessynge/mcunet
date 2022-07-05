@@ -140,7 +140,6 @@ cc_library(
         "//mcunet/extras/host/arduino:client",
         "//mcunet/extras/host/arduino:ip_address",
         "//mcunet/extras/host/ethernet5500",
-        "//mcunet/extras/host/ethernet5500:host_sockets",
     ],
 )
 

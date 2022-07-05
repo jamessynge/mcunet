@@ -30,7 +30,11 @@ cc_library(
     deps = [
         ":dhcp_class",
         ":ethernet_config",
+        "//absl/log",
+        "//absl/log:check",
+        "//mcucore/src:logging",
         "//mcunet/extras/host/arduino:ip_address",
+        "//mcunet/src:platform_network_interface",
     ],
 )
 
@@ -39,10 +43,11 @@ cc_library(
     srcs = ["ethernet_client.cc"],
     hdrs = ["ethernet_client.h"],
     deps = [
-        ":ethernet_config",
-        ":host_sockets",
-        ":w5500",
+        "//absl/log",
+        "//absl/log:check",
+        "//mcucore/src:logging",
         "//mcunet/extras/host/arduino:client",
+        "//mcunet/src:platform_network_interface",
     ],
 )
 
@@ -59,10 +64,10 @@ cc_library(
         ":ethernet_class",
         ":ethernet_client",
         ":ethernet_config",
-        ":host_sockets",
         ":w5500",
-        "//absl/time",
-        "//glog:logging",
+        "//absl/log",
+        "//absl/log:check",
+        "//mcunet/src:platform_network_interface",
     ],
 )
 
@@ -85,6 +90,7 @@ cc_library(
     deps = [
         ":host_socket_info",
         "//absl/log",
+        "//absl/log:check",
         "//absl/strings",
         "//mcucore/src:logging",
         "//mcunet/src:platform_network",
@@ -97,17 +103,6 @@ cc_library(
     srcs = ["host_socket_info.cc"],
     hdrs = ["host_socket_info.h"],
     deps = ["//glog:logging"],
-)
-
-cc_library(
-    name = "host_sockets",
-    srcs = ["host_sockets.cc"],
-    hdrs = ["host_sockets.h"],
-    deps = [
-        ":ethernet_config",
-        ":w5500",
-        "//glog:logging",
-    ],
 )
 
 cc_library(

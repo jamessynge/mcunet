@@ -34,10 +34,9 @@ class HostSocketInfo {
   // which has been 'recently' closed).
   bool IsUnused();
 
-  // Returns true if the socket is listening for TCP connections to tcp_port.
-  // If tcp_port is zero, then returns true if listening for a TCP connection on
-  // any port.
-  bool IsTcpListener(uint16_t tcp_port = 0);
+  // Returns the non-zero port number if the socket is listening for TCP
+  // connections to a port.
+  uint16_t IsTcpListener();
 
   // Returns true if there is an open connection socket.
   // TODO(jamessynge): This should probably be changed to "there is a connection
@@ -53,10 +52,6 @@ class HostSocketInfo {
   // the peer hasn't half-closed the connection so there may be more data in the
   // future.
   bool CanReadFromConnection();
-
-  // Returns the number of bytes that are likely available for reading. Zero is
-  // returned if there is an error determining the answer.
-  int AvailableBytes();
 
   // Returns true if there is neither a listener nor a connection socket.
   // TODO(jamessynge): Need to consider whether this matches the semantic we
@@ -107,6 +102,20 @@ class HostSocketInfo {
   // error is encountered.
   ssize_t Send(const uint8_t *buf, size_t len);
 
+  // Flush any bytes queued in the socket for sending.
+  void Flush();
+
+  // Returns the number of bytes available for reading from the socket; if an
+  // error occurred, -1 is returned; if all bytes written by the peer have been
+  // read, and the peer has performed an orderly shutdown of writing, then 0 is
+  // returned, indicating EOF; however, 0 will also be returned if that is the
+  // number of bytes available to read from a fully open connection.
+  ssize_t AvailableBytes();
+
+  // Returns the first available byte from the socket, or -1 if there is no byte
+  // available, including if the connection is not open.
+  int Peek();
+
   // Receives from an open connection. Returns the number of bytes received and
   // copied into the buffer; if an error occurred, -1 is returned; if the peer
   // has performed an orderly shutdown of writing, then 0 is returned,
@@ -115,9 +124,13 @@ class HostSocketInfo {
 
  private:
   const int sock_num_;
+
+  // IFF listening, these two are at non-default values.
   int listener_socket_fd_{-1};
-  int connection_socket_fd_{-1};
   uint16_t tcp_port_{0};
+
+  // IFF a connection has been accepted, set to a non-default value (>= 0).
+  int connection_socket_fd_{-1};
 };
 
 }  // namespace mcunet_host

@@ -19,8 +19,9 @@ class EthernetServer {
   EthernetClient available();
 
  private:
-  // Accept
+  // If there are any new connections, accept them.
   void accept();
+
   uint16_t port_;
 };
 

@@ -5,7 +5,6 @@
 // maybe to be a TCP server.
 
 #include "extras/host/arduino/client.h"
-#include "extras/host/ethernet5500/ethernet_config.h"
 
 class EthernetClient : public Client {
  public:
@@ -18,9 +17,9 @@ class EthernetClient : public Client {
   size_t write(uint8_t) override;
 
   // Write 'size' bytes from the buffer to the stream, returns the number
-  // written. Note that Ethernet5500 takes a blocking approach, looping until
-  // there are 'size' bytes in the TX buffers available (with 'size' capped to
-  // the maximum send size allowed).
+  // written. Note that Ethernet5500 takes a *mostly* blocking approach, looping
+  // until there are 'size' bytes in the TX buffers available, though with
+  // 'size' capped to the maximum send size allowed, which is 2KB).
   size_t write(const uint8_t *buf, size_t size) override;
 
   // Returns the number of bytes available for reading. It may not be possible

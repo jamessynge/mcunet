@@ -33,7 +33,6 @@
 #include "extras/host/arduino/client.h"             // IWYU pragma: export
 #include "extras/host/arduino/ip_address.h"         // IWYU pragma: export
 #include "extras/host/ethernet5500/ethernet5500.h"  // IWYU pragma: export
-#include "extras/host/ethernet5500/host_sockets.h"  // IWYU pragma: export
 
 #endif  // ARDUINO
 

@@ -10,6 +10,7 @@
 #include <memory>
 #include <string_view>
 
+#include "absl/log/check.h"
 #include "absl/log/log.h"
 #include "absl/strings/str_cat.h"
 #include "extras/host/ethernet5500/host_socket_info.h"
@@ -24,9 +25,9 @@ struct HostNetworkImpl {
       LOG(ERROR) << "Invalid socket number: " << static_cast<int>(sock_num);
       return nullptr;
     }
-    MCU_CHECK_NE(sockets.find(sock_num), sockets.end())
+    CHECK(sockets.find(sock_num) != sockets.end())
         << "Socket " << static_cast<int>(sock_num) << " is missing";
-    MCU_CHECK_NE(sockets[sock_num].get(), nullptr)
+    CHECK(sockets[sock_num].get() != nullptr)
         << "Socket " << static_cast<int>(sock_num) << " is missing";
     return sockets[sock_num].get();
   }
@@ -49,32 +50,47 @@ int HostNetwork::FindUnusedSocket() {
   for (int sock_num = 0; sock_num < kMaxSockets; ++sock_num) {
     auto *info = impl_->GetHostSocketInfo(sock_num);
     if (info != nullptr && info->IsUnused()) {
+      VLOG(2) << "HostNetwork::FindUnusedSocket found " << sock_num;
       return sock_num;
     }
   }
+  VLOG(2) << "HostNetwork::FindUnusedSocket found no unused sockets";
   return -1;
 }
 
-bool HostNetwork::SocketIsTcpListener(uint8_t sock_num, uint16_t tcp_port) {
+uint16_t HostNetwork::SocketIsTcpListener(uint8_t sock_num) {
+  uint16_t port = 0;
   auto *info = impl_->GetHostSocketInfo(sock_num);
-  return info != nullptr && info->IsTcpListener(tcp_port);
+  if (info != nullptr) {
+    port = info->IsTcpListener();
+  }
+  VLOG(2) << "HostNetwork::SocketIsTcpListener -> " << port;
+  return port;
 }
 
 bool HostNetwork::SocketIsInTcpConnectionLifecycle(uint8_t sock_num) {
   auto *info = impl_->GetHostSocketInfo(sock_num);
   // This doesn't quite cover the case where the socket is either being
   // established or is being closed (i.e. in TIME_WAIT state).
-  return info != nullptr && info->IsConnected();
+  bool result = info != nullptr && info->IsConnected();
+  VLOG(2) << "HostNetwork::SocketIsInTcpConnectionLifecycle -> "
+          << (result ? "true" : "false");
+  return result;
 }
 
 bool HostNetwork::SocketIsHalfClosed(uint8_t sock_num) {
   auto *info = impl_->GetHostSocketInfo(sock_num);
-  return info != nullptr && info->IsConnectionHalfClosed();
+  bool result = info != nullptr && info->IsConnectionHalfClosed();
+  VLOG(2) << "HostNetwork::SocketIsHalfClosed -> "
+          << (result ? "true" : "false");
+  return result;
 }
 
 bool HostNetwork::SocketIsClosed(uint8_t sock_num) {
   auto *info = impl_->GetHostSocketInfo(sock_num);
-  return info != nullptr && info->IsClosed();
+  bool result = info != nullptr && info->IsClosed();
+  VLOG(2) << "HostNetwork::SocketIsClosed -> " << (result ? "true" : "false");
+  return result;
 }
 
 uint8_t HostNetwork::SocketStatus(uint8_t sock_num) {
@@ -96,6 +112,11 @@ bool HostNetwork::InitializeTcpListenerSocket(uint8_t sock_num,
                                               uint16_t tcp_port) {
   auto *info = impl_->GetHostSocketInfo(sock_num);
   return info != nullptr && info->InitializeTcpListener(tcp_port);
+}
+
+bool HostNetwork::AcceptConnection(uint8_t sock_num) {
+  auto *info = impl_->GetHostSocketInfo(sock_num);
+  return info != nullptr && info->AcceptConnection();
 }
 
 bool HostNetwork::DisconnectSocket(uint8_t sock_num) {
@@ -120,6 +141,31 @@ ssize_t HostNetwork::Send(uint8_t sock_num, const uint8_t *buf, size_t len) {
   auto *info = impl_->GetHostSocketInfo(sock_num);
   if (info != nullptr) {
     return info->Send(buf, len);
+  } else {
+    return -1;
+  }
+}
+
+void HostNetwork::Flush(uint8_t sock_num) {
+  auto *info = impl_->GetHostSocketInfo(sock_num);
+  if (info != nullptr) {
+    return info->Flush();
+  }
+}
+
+ssize_t HostNetwork::AvailableBytes(uint8_t sock_num) {
+  auto *info = impl_->GetHostSocketInfo(sock_num);
+  if (info != nullptr) {
+    return info->AvailableBytes();
+  } else {
+    return -1;
+  }
+}
+
+int HostNetwork::Peek(uint8_t sock_num) {
+  auto *info = impl_->GetHostSocketInfo(sock_num);
+  if (info != nullptr) {
+    return info->Peek();
   } else {
     return -1;
   }
@@ -171,6 +217,7 @@ bool CloseSocket(const int socket_fd, std::string_view caller_name) {
     LogError(errnum, absl::StrCat(caller_name, ": failed to close socket"));
     return false;
   }
+  LOG(INFO) << caller_name << ": closed socket " << socket_fd;
   return true;
 }
 
@@ -204,7 +251,7 @@ int FindFreeInetPort(int socket_type, std::string_view caller_name) {
   }
 
   const int tcp_port = ntohs(serv_addr.sin_port);
-  LOG(INFO) << caller_name << ": port " << tcp_port << "is free";
+  LOG(INFO) << caller_name << ": port " << tcp_port << " is free";
 
   if (!CloseSocket(socket_fd, caller_name)) {
     // Port is still in use by the socket, so we can't claim it is free.

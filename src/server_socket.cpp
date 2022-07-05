@@ -100,7 +100,7 @@ void ServerSocket::SocketLost() {
 bool ServerSocket::BeginListening() {
   if (!HasSocket()) {
     return false;
-  } else if (PlatformNetwork::SocketIsTcpListener(sock_num_, tcp_port_)) {
+  } else if (tcp_port_ == PlatformNetwork::SocketIsTcpListener(sock_num_)) {
     // Already listening.
     MCU_VLOG(1) << MCU_FLASHSTR("Already listening, last_status_ is ")
                 << mcucore::BaseHex << last_status_;

@@ -4,6 +4,8 @@
 // Just enough of EthernetClass for Tiny Alpaca Server to compile on host, maybe
 // to be a TCP server.
 
+#include <McuCore.h>
+
 #include "extras/host/arduino/ip_address.h"  // IWYU pragma: export
 #include "extras/host/ethernet5500/dhcp_class.h"
 #include "extras/host/ethernet5500/ethernet_config.h"
@@ -23,23 +25,23 @@ class EthernetClass {
   // 32KB of buffer for receive and transmit buffers, divided among the sockets
   // as follows based on the number of hardware sockets:
   //
-  // maxSockNum = 1 Socket 0 -> RX/TX Buffer 16KB
-  // maxSockNum = 2 Socket 0, 1 -> RX/TX Buffer 8KB
-  // maxSockNum = 4 Socket 0...3 -> RX/TX Buffer 4KB
-  // maxSockNum = 8 (Standard) all sockets -> RX/TX Buffer 2KB
+  // maxSockNum = 1 - Socket 0 -> RX/TX Buffer 16KB
+  // maxSockNum = 2 - Sockets 0 and 1 -> RX/TX Buffer 8KB
+  // maxSockNum = 4 - Sockets 0 through 3 -> RX/TX Buffer 4KB
+  // maxSockNum = 8 - Sockets 0 through 7 -> RX/TX Buffer 2KB (DEFAULT)
   //
   // Note: MAX_SOCK_NUM is set at compile type, and doesn't reflect the value
   // passed to init().
-  void init(uint8_t maxSockNum = 8) {}
+  void init(uint8_t maxSockNum = 8);
 
   // You need to call setCsPin first.
   uint8_t softreset() { return 1; }
 
   // You need to call setRstPin first.
-  void hardreset() {}
+  void hardreset();
 
-  void setRstPin(uint8_t pinRST) {}
-  void setCsPin(uint8_t pinCS) {}
+  void setRstPin(uint8_t pinRST);
+  void setCsPin(uint8_t pinCS);
   void setDhcp(DhcpClass* dhcp) { _dhcp = dhcp; }
 
   // Declaring functions in the order called.
@@ -85,6 +87,8 @@ class EthernetClass {
   IPAddress _dnsServerAddress;  // NOLINT
   DhcpClass* _dhcp;             // NOLINT
   char _customHostname[32];     // NOLINT
+  int reset_pin_{-1};
+  int chip_select_pin_{-1};
 };
 
 extern EthernetClass Ethernet;
