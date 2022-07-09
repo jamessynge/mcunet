@@ -6,6 +6,7 @@
 //
 // Author: james.synge@gmail.com
 
+#include <Stream.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -16,7 +17,6 @@
 
 #include "connection.h"
 #include "extras/host/arduino/client.h"
-#include "mcucore/extras/host/arduino/stream.h"
 
 namespace mcunet {
 namespace test {

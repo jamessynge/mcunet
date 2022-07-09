@@ -8,9 +8,9 @@
 //
 // Author: james.synge@gmail.com
 
+#include <Stream.h>
 #include <stddef.h>
 
-#include "mcucore/extras/host/arduino/stream.h"  // pragma: keep extras include
 #include "platform_network.h"
 
 namespace mcunet {
