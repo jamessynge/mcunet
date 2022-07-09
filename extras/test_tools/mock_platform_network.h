@@ -15,7 +15,7 @@ class MockPlatformNetwork : public PlatformNetworkInterface {
 #endif
 
 #define MCUNET_PNAPI_METHOD(TYPE, NAME, ARGS) MOCK_METHOD(TYPE, NAME, ARGS)
-#include "platform_network_api.cc.inc"
+#include "platform_network_api.cc.inc"  // IWYU pragma: export
 #undef MCUNET_PNAPI_METHOD
 };
 

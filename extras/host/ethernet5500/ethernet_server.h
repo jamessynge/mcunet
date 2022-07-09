@@ -3,8 +3,9 @@
 // Just enough of EthernetServer for Tiny Alpaca Server to compile on host,
 // maybe to be a TCP server.
 
+#include <stdint.h>
+
 #include "extras/host/ethernet5500/ethernet_client.h"
-#include "extras/host/ethernet5500/ethernet_config.h"
 
 class EthernetServer {
  public:

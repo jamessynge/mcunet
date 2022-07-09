@@ -11,6 +11,10 @@
 // headers to be included, I've chosen here to limit the includes in headers
 // like this to gmock.h and the header(s) of the class(es) being mocked.
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include "extras/host/arduino/ip_address.h"
 #include "extras/host/ethernet5500/ethernet_client.h"
 #include "gmock/gmock.h"
 

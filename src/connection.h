@@ -8,6 +8,9 @@
 //
 // Author: james.synge@gmail.com
 
+#include <stddef.h>
+
+#include "mcucore/extras/host/arduino/stream.h"  // pragma: keep extras include
 #include "platform_network.h"
 
 namespace mcunet {
@@ -37,6 +40,11 @@ class Connection : public Stream {
   // method. The same applies to the lack of a const qualifier on the method.
   virtual uint8_t connected() = 0;
 
+  // Declare the base class read method in this class, so that read is an
+  // overloaded method name in this class, rather than the following method
+  // hiding the base class method.
+  using Stream::read;
+
   // Reads up to 'size' bytes into buf, stopping early if there are no more
   // bytes available to read from the connection. Returns the number of bytes
   // read, if any; if the peer has closed their side for writing (half-closed),
@@ -46,61 +54,11 @@ class Connection : public Stream {
   // The default implementation uses `int Stream::read()` to read one byte at a
   // time, but ideally a subclass overrides it with a more efficient
   // implementation.
-  virtual int read(uint8_t *buf, size_t size);
-
-  // Declare the base class `int read()` method in this class, so that read is
-  // an overloaded method name in this class, rather than the prior method being
-  // an override.
-  using Stream::read;
+  virtual int read(uint8_t *buf, size_t size) = 0;
 
   // Returns the hardware socket number of this connection. This is exposed
   // primarily to support debugging.
   virtual uint8_t sock_num() const = 0;
-
-  // Returns true if there is a write error has been recorded.
-  virtual bool HasWriteError();
-
-  // Returns true if there is no write error recorded and connected() is true.
-  virtual bool IsOkToWrite();
-};
-
-// An abstract implementation of Connection that delegates to a Client instance
-// provided by a subclass, adding buffering of writes. I added this because I
-// found the performance to be very slow without it, and realized this was
-// because each character or string being printed to the EthernetClient was
-// resulting in an SPI transaction. By buffering up a bunch of smaller strings
-// we amortize the cost setting up the transaction. Note that I've not measured
-// the optimal size of the buffer, nor have I investigated performing any kind
-// of async SPI... it doesn't seem necessary for Tiny Alpaca Server and would
-// require more buffer management.
-class WriteBufferedWrappedClientConnection : public Connection {
- public:
-  WriteBufferedWrappedClientConnection(uint8_t *write_buffer,
-                                       uint8_t write_buffer_limit);
-
-  size_t write(uint8_t b) override;
-  size_t write(const uint8_t *buf, size_t size) override;
-  int availableForWrite() override;
-  int available() override;
-  int read() override;
-  int read(uint8_t *buf, size_t size) override;
-  int peek() override;
-  void flush() override;
-  uint8_t connected() override;
-  bool HasWriteError() override;
-  bool IsOkToWrite() override;
-
- protected:
-  virtual Client &client() const = 0;
-  uint8_t write_buffer_size() const { return write_buffer_size_; }
-
- private:
-  void FlushIfFull();
-  size_t WriteToClient(const uint8_t *buf, size_t size);
-
-  uint8_t *const write_buffer_;
-  const uint8_t write_buffer_limit_;
-  uint8_t write_buffer_size_;
 };
 
 }  // namespace mcunet

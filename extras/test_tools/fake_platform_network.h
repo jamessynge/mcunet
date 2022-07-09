@@ -7,7 +7,7 @@
 //
 // Author: james.synge@gmail.com
 
-#include "platform_network.h"
+#include "platform_network_interface.h"
 
 namespace mcunet {
 namespace test {
@@ -22,7 +22,7 @@ class FakePlatformNetwork : public PlatformNetworkInterface {
 #endif
 
 #define MCUNET_PNAPI_METHOD(TYPE, NAME, ARGS) virtual TYPE NAME ARGS = 0
-#include "platform_network_api.cc.inc"
+#include "platform_network_api.cc.inc"  // IWYU pragma: export
 #undef MCUNET_PNAPI_METHOD
 };
 

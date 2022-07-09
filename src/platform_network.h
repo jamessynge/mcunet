@@ -9,7 +9,6 @@
 
 #include <McuCore.h>  // IWYU pragma: export
 
-#include "mcunet_config.h"
 #include "platform_network_interface.h"
 
 #ifdef ARDUINO
@@ -44,7 +43,7 @@ struct PlatformNetwork {
 #endif
 
 #define MCUNET_PNAPI_METHOD(TYPE, NAME, ARGS) static TYPE NAME ARGS
-#include "platform_network_api.cc.inc"
+#include "platform_network_api.cc.inc"  // IWYU pragma: export
 #undef MCUNET_PNAPI_METHOD
 };
 

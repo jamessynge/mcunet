@@ -11,7 +11,11 @@
 // headers to be included, I've chosen here to limit the includes in headers
 // like this to gmock.h and the header(s) of the class(es) being mocked.
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include "extras/host/arduino/client.h"
+#include "extras/host/arduino/ip_address.h"
 #include "gmock/gmock.h"
 
 namespace mcunet {
@@ -40,6 +44,8 @@ class MockClient : public Client {
     return mock_operator_bool();
   }
   MOCK_METHOD(bool, mock_operator_bool, (), ());
+
+  using Client::setWriteError;
 };
 
 }  // namespace test

@@ -9,34 +9,27 @@
 
 #include <McuCore.h>
 
-#include "connection.h"
 #include "disconnect_data.h"
 #include "platform_network.h"
+#include "write_buffered_connection.h"
 
 namespace mcunet {
 
-class TcpServerConnection : public WriteBufferedWrappedClientConnection {
+class TcpServerConnection : public WriteBufferedConnection {
  public:
-  TcpServerConnection(uint8_t *write_buffer, uint8_t write_buffer_limit,
-                      EthernetClient &client, DisconnectData &disconnect_data);
-  ~TcpServerConnection() override;
+  TcpServerConnection(uint8_t* write_buffer, uint8_t write_buffer_limit,
+                      EthernetClient& client, DisconnectData& disconnect_data);
 
   // If connection is open, flushes it and disconnects the socket, which is
   // recorded in the DisconnectData. This is non-blocking.
   void close() override;
 
   // Delegates to the wrapped client.
-  uint8_t connected() override;
-
-  // Delegates to the wrapped client.
-  uint8_t sock_num() const override;
-
- protected:
-  Client &client() const override { return client_; }
+  uint8_t sock_num() const final { return sock_num_; }
 
  private:
-  EthernetClient &client_;
-  DisconnectData &disconnect_data_;
+  DisconnectData& disconnect_data_;
+  const uint8_t sock_num_;
 };
 
 }  // namespace mcunet

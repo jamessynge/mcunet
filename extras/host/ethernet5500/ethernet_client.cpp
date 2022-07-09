@@ -1,7 +1,5 @@
 #include "extras/host/ethernet5500/ethernet_client.h"
 
-#include <McuCore.h>
-
 #include "absl/log/check.h"
 #include "absl/log/log.h"
 #include "platform_network_interface.h"

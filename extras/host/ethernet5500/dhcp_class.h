@@ -1,7 +1,9 @@
 #ifndef MCUNET_EXTRAS_HOST_ETHERNET5500_DHCP_CLASS_H_
 #define MCUNET_EXTRAS_HOST_ETHERNET5500_DHCP_CLASS_H_
-// DhcpClass is used in embedded environment to lease an IP address for the
-// device, etc. On the host it does nothing.
+
+// Incomplete declaration/implementation of Ethernet5500's DhcpClass. It is used
+// in the embedded environment to lease an IP address for the device, etc. On
+// the host it does nothing.
 
 #define DHCP_CHECK_NONE (0)
 #define DHCP_CHECK_RENEW_FAIL (1)

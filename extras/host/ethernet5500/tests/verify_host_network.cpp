@@ -8,7 +8,9 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "base/init_google.h"
+#include "extras/host/ethernet5500/ethernet_client.h"
 #include "extras/host/ethernet5500/ethernet_config.h"
+#include "extras/host/ethernet5500/ethernet_server.h"
 #include "extras/host/ethernet5500/host_network.h"
 #include "platform_network_interface.h"
 

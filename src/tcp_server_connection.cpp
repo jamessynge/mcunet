@@ -4,22 +4,16 @@
 
 namespace mcunet {
 
-TcpServerConnection::TcpServerConnection(uint8_t *write_buffer,
+TcpServerConnection::TcpServerConnection(uint8_t* write_buffer,
                                          uint8_t write_buffer_limit,
-                                         EthernetClient &client,
-                                         DisconnectData &disconnect_data)
-    : WriteBufferedWrappedClientConnection(write_buffer, write_buffer_limit),
-      client_(client),
-      disconnect_data_(disconnect_data) {
+                                         EthernetClient& client,
+                                         DisconnectData& disconnect_data)
+    : WriteBufferedConnection(write_buffer, write_buffer_limit, client),
+      disconnect_data_(disconnect_data),
+      sock_num_(client.getSocketNumber()) {
   MCU_VLOG(5) << MCU_FLASHSTR("TcpServerConnection@") << this
               << MCU_FLASHSTR(" ctor");
   disconnect_data_.Reset();
-}
-
-TcpServerConnection::~TcpServerConnection() {  // NOLINT
-  MCU_VLOG(5) << MCU_FLASHSTR("TcpServerConnection@") << this
-              << MCU_FLASHSTR(" dtor");
-  flush();
 }
 
 void TcpServerConnection::close() {
@@ -31,16 +25,17 @@ void TcpServerConnection::close() {
   // peer).
   // TODO(jamessynge): Now that I've forked Ethernet3 'permanently' as
   // Ethernet5500, I need to think about how to fix the issues with stop.
+
   auto socket_number = sock_num();
-  auto status = PlatformNetwork::SocketStatus(socket_number);
+  auto status = PlatformNetwork::SocketStatus(sock_num_);
   MCU_VLOG(2) << MCU_FLASHSTR("TcpServerConnection::close, sock_num=")
-              << socket_number << MCU_FLASHSTR(", status=") << mcucore::BaseHex
+              << sock_num_ << MCU_FLASHSTR(", status=") << mcucore::BaseHex
               << status;
   if (status == SnSR::ESTABLISHED || status == SnSR::CLOSE_WAIT) {
     // We have an open connection. Make sure that any data in the write buffer
     // is sent.
     flush();
-    status = PlatformNetwork::SocketStatus(socket_number);
+    status = PlatformNetwork::SocketStatus(sock_num_);
     if (status == SnSR::ESTABLISHED || status == SnSR::CLOSE_WAIT) {
       PlatformNetwork::DisconnectSocket(socket_number);
       status = PlatformNetwork::SocketStatus(socket_number);
@@ -51,12 +46,6 @@ void TcpServerConnection::close() {
   // record this as a disconnect initiated by the listener so that we don't
   // later notify the listener of a disconnect
   disconnect_data_.RecordDisconnect();
-}
-
-uint8_t TcpServerConnection::connected() { return client_.connected(); }
-
-uint8_t TcpServerConnection::sock_num() const {
-  return client_.getSocketNumber();
 }
 
 }  // namespace mcunet

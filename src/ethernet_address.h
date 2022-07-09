@@ -42,6 +42,7 @@
 //     administered address.
 
 #include <McuCore.h>
+#include <stddef.h>
 
 namespace mcunet {
 

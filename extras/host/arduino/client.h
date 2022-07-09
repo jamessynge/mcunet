@@ -3,6 +3,7 @@
 
 // Represents a stream connected to a server.
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "extras/host/arduino/ip_address.h"

@@ -1,11 +1,11 @@
 #ifndef MCUNET_EXTRAS_HOST_ETHERNET5500_HOST_NETWORK_H_
 #define MCUNET_EXTRAS_HOST_ETHERNET5500_HOST_NETWORK_H_
 
-// TODO(jamessynge): Describe why this file exists/what it provides.
+// HostNetwork provides an implementation of PlatformNetworkInterface based
+// (mostly?) on the Posix Sockets API.
 
 #include <memory>
 
-#include "platform_network.h"
 #include "platform_network_interface.h"
 
 namespace mcunet_host {
@@ -26,7 +26,7 @@ class HostNetwork : public mcunet::PlatformNetworkInterface {
 #endif
 
 #define MCUNET_PNAPI_METHOD(TYPE, NAME, ARGS) TYPE NAME ARGS override
-#include "platform_network_api.cc.inc"
+#include "platform_network_api.cc.inc"  // IWYU pragma: export
 #undef MCUNET_PNAPI_METHOD
 
   // Returns a TCP port that is free at the time of the call, for the purpose of

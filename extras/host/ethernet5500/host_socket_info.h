@@ -10,8 +10,9 @@
 // addition to? Since the purpose is for testing, AF_UNIX should be sufficient,
 // but maybe it will be convenient to be a fully fledged network server.
 
-#include <cstdint>
-#include <cstdlib>
+#include <stddef.h>
+#include <stdint.h>
+#include <sys/types.h>
 
 namespace mcunet_host {
 

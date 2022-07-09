@@ -5,7 +5,8 @@
 #include "absl/log/check.h"
 #include "absl/log/log.h"
 #include "extras/host/ethernet5500/ethernet_class.h"
-#include "extras/host/ethernet5500/w5500.h"
+#include "extras/host/ethernet5500/ethernet_config.h"
+#include "extras/host/ethernet5500/w5500.h"  // IWYU pragma: export
 #include "platform_network_interface.h"
 
 EthernetServer::EthernetServer(uint16_t port) : port_(port) {

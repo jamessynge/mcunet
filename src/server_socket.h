@@ -35,7 +35,7 @@
 //
 // Author: james.synge@gmail.com
 
-#include <McuCore.h>
+#include <stdint.h>
 
 #include "disconnect_data.h"
 #include "platform_network.h"

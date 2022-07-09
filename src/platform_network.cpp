@@ -1,7 +1,9 @@
 #include "platform_network.h"
 
 #include <McuCore.h>
+#include <stddef.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 namespace mcunet {
 

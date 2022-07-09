@@ -4,7 +4,12 @@
 // Just enough of EthernetClient for Tiny Alpaca Server to compile on host,
 // maybe to be a TCP server.
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include "extras/host/arduino/client.h"
+#include "extras/host/arduino/ip_address.h"
+#include "extras/host/ethernet5500/w5500.h"  // IWYU pragma: export
 
 class EthernetClient : public Client {
  public:

@@ -19,7 +19,6 @@ cc_library(
         "//mcucore/src:eeprom_tlv",
         "//mcucore/src:logging",
         "//mcucore/src:o_print_stream",
-        "//mcucore/src:progmem_string_data",
         "//mcucore/src:progmem_string_view",
         "//mcucore/src:status",
         "//mcucore/src:status_or",
@@ -32,8 +31,7 @@ cc_library(
     hdrs = ["connection.h"],
     deps = [
         ":platform_network",
-        "//mcucore/src:limits",
-        "//mcucore/src:logging",
+        "//mcucore/extras/host/arduino:stream",
     ],
 )
 
@@ -95,8 +93,6 @@ cc_library(
         "//mcucore/src:eeprom_tlv",
         "//mcucore/src:log_sink",
         "//mcucore/src:logging",
-        "//mcucore/src:mcucore_platform",
-        "//mcucore/src:progmem_string_data",
         "//mcucore/src:progmem_string_view",
         "//mcucore/src:status",
     ],
@@ -133,7 +129,6 @@ cc_library(
     srcs = ["platform_network.cc"],
     hdrs = ["platform_network.h"],
     deps = [
-        ":mcunet_config",
         ":platform_network_interface",
         "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
@@ -151,7 +146,6 @@ cc_library(
     deps = [
         ":mcunet_config",
         "//mcucore/src:logging",
-        "//mcucore/src:mcucore_platform",
     ],
 )
 
@@ -165,8 +159,6 @@ cc_library(
         ":socket_listener",
         ":tcp_server_connection",
         "//mcucore/src:logging",
-        "//mcucore/src:mcucore_platform",
-        "//mcucore/src:o_print_stream",
     ],
 )
 
@@ -184,10 +176,22 @@ cc_library(
     srcs = ["tcp_server_connection.cc"],
     hdrs = ["tcp_server_connection.h"],
     deps = [
-        ":connection",
         ":disconnect_data",
         ":platform_network",
+        ":write_buffered_connection",
         "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
+    ],
+)
+
+cc_library(
+    name = "write_buffered_connection",
+    srcs = ["write_buffered_connection.cc"],
+    hdrs = ["write_buffered_connection.h"],
+    deps = [
+        ":connection",
+        "//mcucore/src:logging",
+        "//mcucore/src:progmem_string_data",
+        "//mcunet/extras/host/arduino:client",
     ],
 )

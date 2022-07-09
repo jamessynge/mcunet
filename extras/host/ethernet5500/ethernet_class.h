@@ -4,17 +4,11 @@
 // Just enough of EthernetClass for Tiny Alpaca Server to compile on host, maybe
 // to be a TCP server.
 
-#include <McuCore.h>
+#include <stdint.h>
 
 #include "extras/host/arduino/ip_address.h"  // IWYU pragma: export
 #include "extras/host/ethernet5500/dhcp_class.h"
 #include "extras/host/ethernet5500/ethernet_config.h"
-
-#define DHCP_CHECK_NONE (0)
-#define DHCP_CHECK_RENEW_FAIL (1)
-#define DHCP_CHECK_RENEW_OK (2)
-#define DHCP_CHECK_REBIND_FAIL (3)
-#define DHCP_CHECK_REBIND_OK (4)
 
 class EthernetClass {
  public:
@@ -34,8 +28,12 @@ class EthernetClass {
   // passed to init().
   void init(uint8_t maxSockNum = 8);
 
-  // You need to call setCsPin first.
-  uint8_t softreset() { return 1; }
+  // Sends a command to the chip to set the RST bit of the W5500 mode register
+  // (MR). Returns 1 if W5500 mode register (MR) is changed back to zero
+  // quickly, else returns 0 if it takes too long (e.g. 20ms) to determine that.
+  // NOTE: there is no checking that the SPI transactions have been successful.
+  // NOTE: setCsPin must be called first.
+  uint8_t softreset();
 
   // You need to call setRstPin first.
   void hardreset();

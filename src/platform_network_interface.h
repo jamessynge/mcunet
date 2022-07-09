@@ -5,13 +5,14 @@
 // of PlatformNetwork, allowing mocking for tests, and a full host networking
 // implementation.
 
-#include <McuCore.h>
-
 #include "mcunet_config.h"
 
 #if MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
 
-#include <memory>  // pragma: keep standard include
+#include <McuCore.h>
+
+#include <memory>   // pragma: keep standard include
+#include <utility>  // pragma: keep standard include
 
 namespace mcunet {
 
@@ -36,7 +37,7 @@ class PlatformNetworkInterface {
 #endif
 
 #define MCUNET_PNAPI_METHOD(TYPE, NAME, ARGS) virtual TYPE NAME ARGS = 0
-#include "platform_network_api.cc.inc"
+#include "platform_network_api.cc.inc"  // IWYU pragma: export
 #undef MCUNET_PNAPI_METHOD
 };
 

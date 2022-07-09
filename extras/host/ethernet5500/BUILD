@@ -1,7 +1,9 @@
-# A fake host version of the Ethernet5500 Arduino Library, itself forked
-# from sstaub's Ethernet3 for the WIZ5500. Has just enough for compiling
-# and testing Tiny Alpaca Server on Linux host (i.e. a host with the usual
-# socket APIs).
+# A minimal host version of the Ethernet5500 Arduino Library, itself forked
+# from sstaub's Ethernet3 for the WIZ5500. For the basic TCP server features,
+# uses PlatformNetwork to get the networking implementation to use, thus
+# allowing both mocking and a "real" TCP implementation to be used for testing.
+# For other features, such as DHCP, there is essentially no implementation,
+# maybe just enough for compiling.
 
 cc_library(
     name = "dhcp_class",
@@ -32,7 +34,6 @@ cc_library(
         ":ethernet_config",
         "//absl/log",
         "//absl/log:check",
-        "//mcucore/src:logging",
         "//mcunet/extras/host/arduino:ip_address",
         "//mcunet/src:platform_network_interface",
     ],
@@ -43,10 +44,11 @@ cc_library(
     srcs = ["ethernet_client.cc"],
     hdrs = ["ethernet_client.h"],
     deps = [
+        ":w5500",
         "//absl/log",
         "//absl/log:check",
-        "//mcucore/src:logging",
         "//mcunet/extras/host/arduino:client",
+        "//mcunet/extras/host/arduino:ip_address",
         "//mcunet/src:platform_network_interface",
     ],
 )
@@ -76,8 +78,6 @@ cc_library(
     srcs = ["ethernet_udp.cc"],
     hdrs = ["ethernet_udp.h"],
     deps = [
-        ":ethernet_client",
-        ":ethernet_config",
         "//mcucore/extras/host/arduino:stream",
         "//mcunet/extras/host/arduino:ip_address",
     ],
@@ -92,8 +92,6 @@ cc_library(
         "//absl/log",
         "//absl/log:check",
         "//absl/strings",
-        "//mcucore/src:logging",
-        "//mcunet/src:platform_network",
         "//mcunet/src:platform_network_interface",
     ],
 )
@@ -102,7 +100,10 @@ cc_library(
     name = "host_socket_info",
     srcs = ["host_socket_info.cc"],
     hdrs = ["host_socket_info.h"],
-    deps = ["//glog:logging"],
+    deps = [
+        "//absl/log",
+        "//absl/log:check",
+    ],
 )
 
 cc_library(

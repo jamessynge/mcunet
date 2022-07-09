@@ -2,7 +2,6 @@
 
 #include <McuCore.h>
 
-#include <cstring>
 #include <set>
 
 #include "gmock/gmock.h"

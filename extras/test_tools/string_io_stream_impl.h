@@ -15,6 +15,7 @@
 #include <string_view>
 
 #include "connection.h"
+#include "extras/host/arduino/client.h"
 #include "mcucore/extras/host/arduino/stream.h"
 
 namespace mcunet {

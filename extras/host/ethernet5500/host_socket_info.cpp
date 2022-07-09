@@ -1,23 +1,16 @@
 #include "extras/host/ethernet5500/host_socket_info.h"
 
-#include <asm-generic/errno-base.h>
-#include <asm-generic/errno.h>
-#include <asm-generic/ioctls.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <stddef.h>
 #include <stdint.h>
-#include <sys/ioctl.h>
+#include <strings.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include <algorithm>
-#include <cerrno>
-#include <cstring>
-#include <limits>
-#include <map>
-#include <memory>
-
-#include "glog/logging.h"
+#include "absl/log/check.h"
+#include "absl/log/log.h"
 
 namespace mcunet_host {
 

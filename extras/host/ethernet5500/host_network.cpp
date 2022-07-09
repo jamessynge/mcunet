@@ -1,10 +1,13 @@
 #include "extras/host/ethernet5500/host_network.h"
 
-#include <McuCore.h>
+#include <errno.h>
 #include <netinet/in.h>
+#include <stddef.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #include <map>
 #include <memory>
