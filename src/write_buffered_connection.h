@@ -12,11 +12,11 @@
 // any kind of async SPI... it doesn't seem necessary for Tiny Alpaca Server and
 // would require more buffer management.
 
+#include <Client.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include "connection.h"
-#include "extras/host/arduino/client.h"  // pragma: keep extras include
 
 namespace mcunet {
 
