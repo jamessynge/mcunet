@@ -1,6 +1,5 @@
 #include "addresses.h"
 
-#include <EEPROM.h>
 #include <McuCore.h>
 
 #include <set>
@@ -9,6 +8,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "ip_address.h"
+#include "mcucore/extras/host/eeprom/eeprom.h"
 #include "mcucore/extras/test_tools/print_value_to_std_string.h"
 #include "mcucore/extras/test_tools/status_test_utils.h"
 
