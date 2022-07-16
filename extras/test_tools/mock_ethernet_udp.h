@@ -41,7 +41,7 @@ class MockEthernetUDP : public EthernetUDP {
   MOCK_METHOD(int, parsePacket, (), (override));
   MOCK_METHOD(int, read, (uint8_t *, size_t), (override));
   MOCK_METHOD(int, read, (char *, size_t), (override));
-  MOCK_METHOD(class IPAddress, remoteIP, (), (override));
+  MOCK_METHOD(IPAddress, remoteIP, (), (override));
   MOCK_METHOD(void, remoteIP, (uint8_t *), (override));
   MOCK_METHOD(uint16_t, remotePort, (), (override));
   MOCK_METHOD(void, remoteMAC, (uint8_t *), (override));
