@@ -58,9 +58,6 @@ cc_test(
     srcs = ["write_buffered_connection_test.cc"],
     deps = [
         "//googletest:gunit_main",
-        "//mcucore/extras/test_tools:print_to_std_string",
-        "//mcucore/extras/test_tools:print_value_to_std_string",
-        "//mcucore/extras/test_tools:sample_printable",
         "//mcunet/extras/test_tools:fake_write_buffered_connection",
         "//mcunet/extras/test_tools:mock_client",
         "//mcunet/src:write_buffered_connection",
