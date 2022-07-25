@@ -1,5 +1,13 @@
 # Libraries intended to simplify the task of writing tests of McuNet.
 
+package(
+    # In addition to testonly, I'd also like to have a "hostonly" feature on a
+    # target, so that I could readily mark those features that can be used on
+    # embedded systems, and those that are only available on host systems. There
+    # probably is some notion of "platform" that I can use. TBD.
+    default_testonly = 1,
+)
+
 cc_library(
     name = "fake_platform_network",
     testonly = True,
@@ -62,6 +70,15 @@ cc_library(
 )
 
 cc_library(
+    name = "mock_request_decoder_listener",
+    hdrs = ["mock_request_decoder_listener.h"],
+    deps = [
+        "//googletest:gunit_headers",
+        "//mcunet/src/http1:request_decoder",
+    ],
+)
+
+cc_library(
     name = "mock_socket_listener",
     testonly = True,
     hdrs = ["mock_socket_listener.h"],
@@ -88,5 +105,17 @@ cc_test(
     deps = [
         ":string_io_stream_impl",
         "//googletest:gunit_main",
+    ],
+)
+
+cc_library(
+    name = "string_utils",
+    srcs = ["string_utils.cc"],
+    hdrs = ["string_utils.h"],
+    deps = [
+        "//absl/log",
+        "//absl/log:check",
+        "//absl/strings",
+        "//mcucore/src:string_view",
     ],
 )

@@ -1,0 +1,24 @@
+#ifndef MCUNET_EXTRAS_TEST_TOOLS_STRING_UTILS_H_
+#define MCUNET_EXTRAS_TEST_TOOLS_STRING_UTILS_H_
+
+// TODO(jamessynge): Describe why this file exists/what it provides.
+
+#include <string>
+#include <vector>
+
+namespace mcunet {
+namespace test {
+
+std::vector<std::string> SplitEveryN(const std::string& full_request,
+                                     const size_t n);
+
+std::vector<std::vector<std::string>> GenerateMultipleRequestPartitions(
+    const std::string& full_request);
+
+std::string AppendRemainder(const std::string& buffer,
+                            const std::vector<std::string>& partition, int ndx);
+
+}  // namespace test
+}  // namespace mcunet
+
+#endif  // MCUNET_EXTRAS_TEST_TOOLS_STRING_UTILS_H_
