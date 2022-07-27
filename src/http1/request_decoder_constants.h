@@ -70,7 +70,9 @@ enum class EPartialToken : uint_fast8_t {
   // path.
   kPathSegment,
 
-  // The query string, i.e. following a request's path.
+  // The query string, i.e. following a request's path. We don't try to force
+  // the buffering of the entire query string, so we don't have a corresponding
+  // EToken enumerator.
   kQueryString,
 
   // The name of a header (e.g. "Content-Type");

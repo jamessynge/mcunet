@@ -8,10 +8,12 @@
 // TODO(jamessynge): Trim down the includes after writing tests.
 #include <McuCore.h>
 
+#include "absl/strings/str_cat.h"
 #include "extras/test_tools/mock_request_decoder_listener.h"
 #include "extras/test_tools/string_utils.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "http1/request_decoder_constants.h"
 #include "mcucore/extras/test_tools/print_to_std_string.h"
 #include "mcucore/extras/test_tools/print_value_to_std_string.h"
 #include "mcucore/extras/test_tools/sample_printable.h"
@@ -66,7 +68,8 @@ EDecodeBufferStatus DecodeBuffer(
   CHECK_GT(max_decode_buffer_size, 0);
   CHECK_LE(max_decode_buffer_size, mcucore::StringView::kMaxSize);
 
-  while (true) {
+  EDecodeBufferStatus status = EDecodeBufferStatus::kInternalError;
+  do {
     // We deliberately copy into another string. This can allow msan or asan to
     // detect when we've read too far.
     const size_t initial_size = std::min(max_decode_buffer_size, buffer.size());
@@ -74,7 +77,7 @@ EDecodeBufferStatus DecodeBuffer(
     mcucore::StringView view(copy.data(), initial_size);
 
     const bool buffer_is_full = view.size() >= max_decode_buffer_size;
-    auto status = decoder.DecodeBuffer(view, buffer_is_full);
+    status = decoder.DecodeBuffer(view, buffer_is_full);
 
     // Make sure that the decoder only removed the prefix of the view.
     EXPECT_GE(initial_size, view.size());
@@ -86,19 +89,23 @@ EDecodeBufferStatus DecodeBuffer(
 
     // Remove the decoded prefix of buffer.
     buffer.erase(0, initial_size - view.size());
-    if (buffer.empty() || status != EDecodeBufferStatus::kDecodingInProgress) {
+
+    // Are we done?
+    LOG(INFO) << "decoder.DecodeBuffer returned " << status
+              << " after removing " << removed_size << " characters.";
+    if (status >= EDecodeBufferStatus::kComplete || removed_size == 0) {
       return status;
     }
-  }
+  } while (!buffer.empty());
+  return status;
 }
 
 EDecodeBufferStatus ResetAndDecodeFullBuffer(
-    RequestDecoder& decoder, RequestDecoderListener* listener,
-    std::string& buffer,
+    RequestDecoder& decoder, RequestDecoderListener* rdl, std::string& buffer,
     const size_t max_decode_buffer_size = kDecodeBufferSize) {
   decoder.Reset();
-  if (listener != nullptr) {
-    decoder.SetListener(*listener);
+  if (rdl != nullptr) {
+    decoder.SetListener(*rdl);
   }
   return DecodeBuffer(decoder, buffer, true, max_decode_buffer_size);
 }
@@ -108,22 +115,22 @@ EDecodeBufferStatus ResetAndDecodeFullBuffer(
 // all the remaining undecoded text.
 std::tuple<EDecodeBufferStatus, std::string, std::string>
 DecodePartitionedRequest(
-    RequestDecoder& decoder, RequestDecoderListener* listener,
+    RequestDecoder& decoder, RequestDecoderListener* rdl,
     const std::vector<std::string>& partition,
     const size_t max_decode_buffer_size = kDecodeBufferSize) {
   CHECK_NE(partition.size(), 0);
   CHECK_GT(max_decode_buffer_size, 0);
   CHECK_LE(max_decode_buffer_size, mcucore::StringView::kMaxSize);
   decoder.Reset();
-  if (listener != nullptr) {
-    decoder.SetListener(*listener);
+  if (rdl != nullptr) {
+    decoder.SetListener(*rdl);
   }
   std::string buffer;
   for (int ndx = 0; ndx < partition.size(); ++ndx) {
     const bool at_end = (ndx + 1) == partition.size();
     buffer += partition[ndx];
     auto status = DecodeBuffer(decoder, buffer, at_end, max_decode_buffer_size);
-    if (status >= EDecodeBufferStatus::kComplete) {
+    if (status >= EDecodeBufferStatus::kComplete || at_end) {
       return {status, buffer, AppendRemainder(buffer, partition, ndx + 1)};
     }
   }
@@ -144,15 +151,15 @@ TEST(RequestDecoderTest, ResetOnly) {
 }
 
 TEST(RequestDecoderTest, SetListenerOnly) {
-  StrictMock<MockRequestDecoderListener> listener;
+  StrictMock<MockRequestDecoderListener> rdl;
   RequestDecoder decoder;
-  decoder.SetListener(listener);
+  decoder.SetListener(rdl);
 }
 
 TEST(RequestDecoderTest, ResetRequired) {
-  StrictMock<MockRequestDecoderListener> listener;
+  StrictMock<MockRequestDecoderListener> rdl;
   RequestDecoder decoder;
-  decoder.SetListener(listener);
+  decoder.SetListener(rdl);
   const StringView original("GET ");
   auto buffer = original;
   EXPECT_EQ(decoder.DecodeBuffer(buffer, false),
@@ -162,61 +169,154 @@ TEST(RequestDecoderTest, ResetRequired) {
 
 TEST(RequestDecoderTest, SmallestHomePageRequest) {
   RequestDecoder decoder;
-
-  const std::string full_request(
+  const char kRequestHeader[] =
       "GET / HTTP/1.1\r\n"
-      "\r\n");
+      "\r\n";
+  const char kOptionalBody[] = "NotAHeaderName:NotAHeaderValue\r\n\r\n";
 
-  for (auto partition : GenerateMultipleRequestPartitions(full_request)) {
-    LOG(INFO) << "\n"
-              << "----------------------------------------"
-              << "----------------------------------------";
-    StrictMock<MockRequestDecoderListener> listener;
-    EXPECT_CALL(listener, OnCompleteText(EToken::kHttpMethod, Eq("GET")));
-    EXPECT_CALL(listener, OnEvent(EEvent::kPathStart));
-    EXPECT_CALL(listener, OnEvent(EEvent::kPathAndUrlEnd));
-    EXPECT_CALL(listener, OnEvent(EEvent::kHttpVersion1_1));
-    EXPECT_CALL(listener, OnEnd);
+  for (const auto body : {"", kOptionalBody}) {
+    for (auto partition : GenerateMultipleRequestPartitions(
+             absl::StrCat(kRequestHeader, body))) {
+      LOG(INFO) << "\n"
+                << "----------------------------------------"
+                << "----------------------------------------";
+      StrictMock<MockRequestDecoderListener> rdl;
+      InSequence s;
+      EXPECT_CALL(rdl, OnCompleteText(EToken::kHttpMethod, Eq("GET")));
+      EXPECT_CALL(rdl, OnEvent(EEvent::kPathStart));
+      EXPECT_CALL(rdl, OnEvent(EEvent::kPathAndUrlEnd));
+      EXPECT_CALL(rdl, OnEvent(EEvent::kHttpVersion1_1));
+      EXPECT_CALL(rdl, OnEnd);
 
-    const auto [status, buffer, remainder] =
-        DecodePartitionedRequest(decoder, &listener, partition);
-    EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
-
-    // const EHttpStatusCode status = std::get<0>(result);
-    // const std::string buffer = std::get<1>(result);
-    // const std::string remainder = std::get<2>(result);
-
-    // EXPECT_EQ(status, EHttpStatusCode::kHttpOk);
-    // EXPECT_THAT(buffer, IsEmpty());
-    // EXPECT_THAT(remainder, IsEmpty());
-    // EXPECT_EQ(alpaca_request.http_method, EHttpMethod::GET);
-
-    // EXPECT_EQ(alpaca_request.api_group, EApiGroup::kServerStatus);
-    // EXPECT_EQ(alpaca_request.api, EAlpacaApi::kServerStatus);
-    // EXPECT_FALSE(alpaca_request.have_client_id);
-    // EXPECT_FALSE(alpaca_request.have_client_transaction_id);
-
-    if (TestHasFailed()) {
-      break;
+      const auto [status, buffer, remainder] =
+          DecodePartitionedRequest(decoder, &rdl, partition);
+      EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
+      EXPECT_THAT(body, StartsWith(buffer));
+      EXPECT_THAT(remainder, body);
+      if (TestHasFailed()) {
+        break;
+      }
     }
   }
 }
 
-// TEST(NoFixture_RequestDecoderTest, NoFixtureTest) {
-//   // TODO(jamessynge): Describe if not really obvious.
-//   EXPECT_EQ(1, 1);
-// }
+TEST(RequestDecoderTest, SmallestDeviceApiGetRequest) {
+  RequestDecoder decoder;
+  const char kRequestHeader[] =
+      "OPTIONS /api/v1/safetymonitor/0/issafe HTTP/1.1\r\n"
+      "\r\n";
+  const char kOptionalBody[] = "NotAHeaderName:NotAHeaderValue\r\n\r\n";
 
-// class RequestDecoderTest : public testing::Test {
-//  protected:
-//   RequestDecoderTest() {}
-//   void SetUp() override {}
-// };
+  for (const auto body : {"", kOptionalBody}) {
+    for (auto partition : GenerateMultipleRequestPartitions(
+             absl::StrCat(kRequestHeader, body))) {
+      LOG(INFO) << "\n"
+                << "----------------------------------------"
+                << "----------------------------------------";
+      StrictMock<MockRequestDecoderListener> rdl;
+      InSequence s;
+      EXPECT_CALL(rdl, OnCompleteText(EToken::kHttpMethod, Eq("OPTIONS")));
+      EXPECT_CALL(rdl, OnEvent(EEvent::kPathStart));
+      EXPECT_CALL(rdl, OnCompleteText(EToken::kPathSegment, Eq("api")));
+      EXPECT_CALL(rdl, OnEvent(EEvent::kPathSeparator));
+      EXPECT_CALL(rdl, OnCompleteText(EToken::kPathSegment, Eq("v1")));
+      EXPECT_CALL(rdl, OnEvent(EEvent::kPathSeparator));
+      EXPECT_CALL(rdl,
+                  OnCompleteText(EToken::kPathSegment, Eq("safetymonitor")));
+      EXPECT_CALL(rdl, OnEvent(EEvent::kPathSeparator));
+      EXPECT_CALL(rdl, OnCompleteText(EToken::kPathSegment, Eq("0")));
+      EXPECT_CALL(rdl, OnEvent(EEvent::kPathSeparator));
+      EXPECT_CALL(rdl, OnCompleteText(EToken::kPathSegment, Eq("issafe")));
+      EXPECT_CALL(rdl, OnEvent(EEvent::kPathAndUrlEnd));
+      EXPECT_CALL(rdl, OnEvent(EEvent::kHttpVersion1_1));
+      EXPECT_CALL(rdl, OnEnd);
 
-// TEST_F(RequestDecoderTest, FixturedTest) {
-//   // TODO(jamessynge): Describe if not really obvious.
-//   EXPECT_EQ(1, 1);
-// }
+      const auto [status, buffer, remainder] =
+          DecodePartitionedRequest(decoder, &rdl, partition);
+      EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
+      EXPECT_THAT(body, StartsWith(buffer));
+      EXPECT_THAT(remainder, body);
+      if (TestHasFailed()) {
+        break;
+      }
+    }
+  }
+}
+
+TEST(RequestDecoderTest, RequestTargetEndsWithSlash) {
+  RequestDecoder decoder;
+  const char kRequestHeader[] =
+      "HEAD /setup/ HTTP/1.1\r\n"
+      "Host: some.name \r\n"
+      "\r\n";
+  const char kOptionalBody[] = "NotAHeaderName:NotAHeaderValue\r\n\r\n";
+
+  for (const auto body : {"", kOptionalBody}) {
+    for (auto partition : GenerateMultipleRequestPartitions(
+             absl::StrCat(kRequestHeader, body))) {
+      LOG(INFO) << "\n"
+                << "----------------------------------------"
+                << "----------------------------------------";
+      StrictMock<MockRequestDecoderListener> rdl;
+      InSequence s;
+      EXPECT_CALL(rdl, OnCompleteText(EToken::kHttpMethod, Eq("HEAD")));
+      EXPECT_CALL(rdl, OnEvent(EEvent::kPathStart));
+      EXPECT_CALL(rdl, OnCompleteText(EToken::kPathSegment, Eq("setup")));
+      EXPECT_CALL(rdl, OnEvent(EEvent::kPathSeparator));
+      EXPECT_CALL(rdl, OnEvent(EEvent::kPathAndUrlEnd));
+      EXPECT_CALL(rdl, OnEvent(EEvent::kHttpVersion1_1));
+      EXPECT_CALL(rdl, OnCompleteText(EToken::kHeaderName, Eq("Host")));
+      EXPECT_CALL(rdl, OnCompleteText(EToken::kHeaderValue, Eq("some.name")));
+      EXPECT_CALL(rdl, OnEnd);
+
+      const auto [status, buffer, remainder] =
+          DecodePartitionedRequest(decoder, &rdl, partition);
+      EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
+      EXPECT_THAT(body, StartsWith(buffer));
+      EXPECT_THAT(remainder, body);
+      if (TestHasFailed()) {
+        break;
+      }
+    }
+  }
+}
+
+TEST(RequestDecoderTest, RootPathPlusEmptyQueryString) {
+  RequestDecoder decoder;
+  const char kRequestHeader[] =
+      "POST /? HTTP/1.1\r\n"
+      "Host:some name\r\n"
+      "\r\n";
+  const char kOptionalBody[] = "NotAHeaderName:NotAHeaderValue\r\n\r\n";
+
+  for (const auto body : {"", kOptionalBody}) {
+    for (auto partition : GenerateMultipleRequestPartitions(
+             absl::StrCat(kRequestHeader, body))) {
+      LOG(INFO) << "\n"
+                << "----------------------------------------"
+                << "----------------------------------------";
+      StrictMock<MockRequestDecoderListener> rdl;
+      InSequence s;
+      EXPECT_CALL(rdl, OnCompleteText(EToken::kHttpMethod, Eq("POST")));
+      EXPECT_CALL(rdl, OnEvent(EEvent::kPathStart));
+      EXPECT_CALL(rdl, OnEvent(EEvent::kPathEndQueryStart));
+      EXPECT_CALL(rdl, OnEvent(EEvent::kQueryAndUrlEnd));
+      EXPECT_CALL(rdl, OnEvent(EEvent::kHttpVersion1_1));
+      EXPECT_CALL(rdl, OnCompleteText(EToken::kHeaderName, Eq("Host")));
+      EXPECT_CALL(rdl, OnCompleteText(EToken::kHeaderValue, Eq("some name")));
+      EXPECT_CALL(rdl, OnEnd);
+
+      const auto [status, buffer, remainder] =
+          DecodePartitionedRequest(decoder, &rdl, partition);
+      EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
+      EXPECT_THAT(body, StartsWith(buffer));
+      EXPECT_THAT(remainder, body);
+      if (TestHasFailed()) {
+        break;
+      }
+    }
+  }
+}
 
 }  // namespace
 }  // namespace test

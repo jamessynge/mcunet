@@ -10,37 +10,7 @@ namespace http1 {
 
 using mcucore::StringView;
 
-using DecodeFunction = RequestDecoderImpl::DecodeFunction;
-using StrSize = StringView::size_type;
-
-// The goals of using ActiveDecodingState are to minimize the number of
-// parameters passed to the DecodeFunctions, and to minimize the size (in bytes)
-// of the RequestDecoderImpl, and hence of RequestDecoder. Both of these stem
-// from trying to provide good performance on a low-memory system, where we
-// might have multiple HTTP (TCP) connections active at once, but are operating
-// in a single threaded fashion, so only one call to DecodeBuffer can be active
-// at a time. So we can transiently use some stack space for ActiveDecodingState
-// while decoding, but don't need any space for it after the call is complete.
-// TODO(jamessynge): Are there any additional fields that we should add?
-struct ActiveDecodingState {
-  StringView input_buffer;
-  RequestDecoderImpl& impl;
-  DecodeFunction partial_decode_function_if_full{nullptr};
-};
-
-namespace {
-
-using CharMatchFunction = bool (*)(char c);
-
-#define DECODER_FUNCTION(function_name) \
-  EDecodeBufferStatus function_name(ActiveDecodingState& state)
-
-#define DECODER_ENTRY_CHECKS(state)            \
-  MCU_DCHECK_LT(0, state.input_buffer.size()); \
-  MCU_DCHECK_LT(state.input_buffer.size(), StringView::kMaxSize)
-
-#define REPORT_ILLFORMED(state, msg_literal) \
-  state.impl.OnIllFormed(MCU_PSD(msg_literal))
+namespace mcunet_http1_internal {
 
 bool IsOptionalWhitespace(const char c) { return c == ' ' || c == '\t'; }
 
@@ -55,7 +25,7 @@ bool IsPChar(const char c) {
 }
 
 // Match characters allowed in a query string.
-bool IsQueryChar(const char c) { return IsPChar(c) || c == '/' || '?'; }
+bool IsQueryChar(const char c) { return IsPChar(c) || c == '/' || c == '?'; }
 
 // Match characters allowed in a token (e.g. a header name).
 MCU_CONSTEXPR_VAR StringView kExtraTChars("!#$%&'*+-.^_`|~");
@@ -72,9 +42,14 @@ bool IsFieldContent(const char c) {
 // e.g. as member functions of StringView, or as generic functions in
 // string_compare.*.
 
+// Return the index of the first character that doesn't match the test function.
+// Returns StringView::kMaxSize if not found.
 StringView::size_type FindFirstNotOf(const StringView& view,
                                      bool (*test)(char)) {
   for (StringView::size_type pos = 0; pos < view.size(); ++pos) {
+    MCU_VLOG_VAR(9, pos) << MCU_NAME_VAL(view.at(pos))
+                         << MCU_NAME_VAL((0 + view.at(pos)))
+                         << MCU_NAME_VAL(test(view.at(pos)));
     if (!test(view.at(pos))) {
       return pos;
     }
@@ -132,6 +107,45 @@ bool TrimTrailingOptionalWhitespace(StringView& view) {
   } while (!view.empty());
   return result;
 }
+
+}  // namespace mcunet_http1_internal
+
+using namespace mcunet_http1_internal;  // NOLINT
+
+using DecodeFunction = RequestDecoderImpl::DecodeFunction;
+using StrSize = StringView::size_type;
+
+// The goals of using ActiveDecodingState are to minimize the number of
+// parameters passed to the DecodeFunctions, and to minimize the size (in bytes)
+// of the RequestDecoderImpl, and hence of RequestDecoder. Both of these stem
+// from trying to provide good performance on a low-memory system, where we
+// might have multiple HTTP (TCP) connections active at once, but are operating
+// in a single threaded fashion, so only one call to DecodeBuffer can be active
+// at a time. So we can transiently use some stack space for ActiveDecodingState
+// while decoding, but don't need any space for it after the call is complete.
+// TODO(jamessynge): Are there any additional fields that we should add?
+struct ActiveDecodingState {
+  StringView input_buffer;
+  RequestDecoderImpl& impl;
+  DecodeFunction partial_decode_function_if_full{nullptr};
+};
+
+namespace {
+
+using CharMatchFunction = bool (*)(char c);
+
+// Using this macro to ensure that all declarations of functions passed to
+// SetDecoderFunction are the same, and to make it easier to find all of those
+// declarations when updating the PrintValue function for decoder functions.
+#define DECODER_FUNCTION(function_name) \
+  EDecodeBufferStatus function_name(ActiveDecodingState& state)
+
+#define DECODER_ENTRY_CHECKS(state)            \
+  MCU_DCHECK_LT(0, state.input_buffer.size()); \
+  MCU_DCHECK_LT(state.input_buffer.size(), StringView::kMaxSize)
+
+#define REPORT_ILLFORMED(state, msg_literal) \
+  state.impl.OnIllFormed(MCU_PSD(msg_literal))
 
 // We expect that the input buffer starts with the specified literal. If so,
 // skip it and call matched_function, else report the specified error.
@@ -202,10 +216,11 @@ EDecodeBufferStatus DecodePartialTokenStartHelper(
 // Decoder functions for different phases of decoding. Generally in reverse
 // order to avoid forward declarations.
 
-// Required forward declaration.
-EDecodeBufferStatus DecodeHeaderLines(ActiveDecodingState& state);
+// Required forward declarations.
+DECODER_FUNCTION(DecodeHeaderLines);
+DECODER_FUNCTION(DecodePathSegment);
 
-DECODER_FUNCTION(MatchedEndOfHeaderLine) {
+EDecodeBufferStatus MatchedEndOfHeaderLine(ActiveDecodingState& state) {
   state.impl.SetDecodeFunction(DecodeHeaderLines);
   return EDecodeBufferStatus::kDecodingInProgress;
 }
@@ -267,7 +282,6 @@ DECODER_FUNCTION(MatchHeaderNameValueSeparator) {
     // Found the ':' separating the name from value.
     state.input_buffer.remove_prefix(1);
     state.impl.SetDecodeFunction(SkipOptionalWhitespace);
-    state.impl.OnEvent(EEvent::kPathStart);
     return EDecodeBufferStatus::kDecodingInProgress;
   }
   return REPORT_ILLFORMED(state, "Invalid header value start");
@@ -285,7 +299,7 @@ DECODER_FUNCTION(DecodePartialHeaderNameStart) {
       state, IsTChar, EPartialToken::kHeaderName, DecodePartialHeaderName);
 }
 
-DECODER_FUNCTION(MatchedEndOfHeaderLines) {
+EDecodeBufferStatus MatchedEndOfHeaderLines(ActiveDecodingState& state) {
   state.impl.OnEnd();
   return EDecodeBufferStatus::kComplete;
 }
@@ -312,7 +326,7 @@ DECODER_FUNCTION(DecodeHeaderLines) {
                                 MCU_PSD("Illformed header name"));
 }
 
-DECODER_FUNCTION(MatchedHttpVersion1_1) {
+EDecodeBufferStatus MatchedHttpVersion1_1(ActiveDecodingState& state) {
   state.impl.SetDecodeFunction(DecodeHeaderLines);
   state.impl.OnEvent(EEvent::kHttpVersion1_1);
   return EDecodeBufferStatus::kDecodingInProgress;
@@ -325,6 +339,8 @@ DECODER_FUNCTION(DecodeHttpVersion) {
                                 MCU_PSD("Unsupported HTTP version"));
 }
 
+// We've finished with the path and optional query string, so should be looking
+// at a space followed by the HTTP version.
 DECODER_FUNCTION(MatchAfterRequestTarget) {
   DECODER_ENTRY_CHECKS(state);
   const char c = state.input_buffer.at(0);
@@ -332,12 +348,11 @@ DECODER_FUNCTION(MatchAfterRequestTarget) {
     // End of the path, and there is no query.
     state.input_buffer.remove_prefix(1);
     state.impl.SetDecodeFunction(DecodeHttpVersion);
-    state.impl.OnEvent(EEvent::kPathAndUrlEnd);
     return EDecodeBufferStatus::kDecodingInProgress;
   }
   MCU_DCHECK(!IsPChar(c)) << c;
   MCU_DCHECK(!IsQueryChar(c)) << c;
-  return REPORT_ILLFORMED(state, "Invalid path end");
+  return REPORT_ILLFORMED(state, "Invalid request target end");
 }
 
 DECODER_FUNCTION(DecodePartialQueryString) {
@@ -354,6 +369,7 @@ DECODER_FUNCTION(DecodePartialQueryString) {
 DECODER_FUNCTION(DecodeQueryStringStart) {
   DECODER_ENTRY_CHECKS(state);
   auto beyond = FindFirstNotOf(state.input_buffer, IsQueryChar);
+  MCU_VLOG_VAR(1, beyond);
   if (beyond == 0) {
     // The query is empty, which is wierd but valid.
     state.impl.SetDecodeFunction(MatchAfterRequestTarget);
@@ -371,26 +387,39 @@ DECODER_FUNCTION(DecodeQueryStringStart) {
   return EDecodeBufferStatus::kDecodingInProgress;
 }
 
-// We're decoding the path, are looking at a spot that isn't part of a
-// segment.
-DECODER_FUNCTION(DecodeAfterSegment) {
+// We've reached the end of valid path characters. Are we at the start of the
+// query string, or and the end of the request target?
+DECODER_FUNCTION(DecodeAfterPath) {
   DECODER_ENTRY_CHECKS(state);
   const char c = state.input_buffer.at(0);
-  MCU_DCHECK(!IsPChar(c)) << c;
-  if (c == ' ') {
-    // End of the path, and there is no query.
-    state.input_buffer.remove_prefix(1);
-    state.impl.SetDecodeFunction(DecodeHttpVersion);
-    state.impl.OnEvent(EEvent::kPathAndUrlEnd);
-    return EDecodeBufferStatus::kDecodingInProgress;
-  } else if (c == '?') {
+  MCU_DCHECK(c != '/' && !IsPChar(c)) << c;
+  if (c == '?') {
     // End of the path, start of the query.
     state.input_buffer.remove_prefix(1);
     state.impl.SetDecodeFunction(DecodeQueryStringStart);
     state.impl.OnEvent(EEvent::kPathEndQueryStart);
     return EDecodeBufferStatus::kDecodingInProgress;
   }
-  return REPORT_ILLFORMED(state, "Invalid path");
+  // Appears to be the end of the request target (path and optional query).
+  state.impl.SetDecodeFunction(MatchAfterRequestTarget);
+  state.impl.OnEvent(EEvent::kPathAndUrlEnd);
+  return EDecodeBufferStatus::kDecodingInProgress;
+}
+
+// We're decoding the path, have just finished decoding a path segment.
+DECODER_FUNCTION(DecodeAfterSegment) {
+  DECODER_ENTRY_CHECKS(state);
+  const char c = state.input_buffer.at(0);
+  MCU_DCHECK(!IsPChar(c)) << c;
+  if (c == '/') {
+    // Maybe there is another segment in the path.
+    state.input_buffer.remove_prefix(1);
+    state.impl.SetDecodeFunction(DecodePathSegment);
+    state.impl.OnEvent(EEvent::kPathSeparator);
+    return EDecodeBufferStatus::kDecodingInProgress;
+  } else {
+    return DecodeAfterPath(state);
+  }
 }
 
 // The path segment is apparently too long to fit in a buffer, so we pass
@@ -407,6 +436,8 @@ DECODER_FUNCTION(DecodePartialPathSegmentStart) {
       state, IsPChar, EPartialToken::kPathSegment, DecodePartialPathSegment);
 }
 
+// The previous character matched is a '/'. We're either at the beginning of a
+// path segment, or at the end of the (valid) path.
 DECODER_FUNCTION(DecodePathSegment) {
   DECODER_ENTRY_CHECKS(state);
   const auto beyond = FindFirstNotOf(state.input_buffer, IsPChar);
@@ -418,13 +449,7 @@ DECODER_FUNCTION(DecodePathSegment) {
     state.impl.OnCompleteText(EToken::kPathSegment, segment);
     return EDecodeBufferStatus::kDecodingInProgress;
   } else if (beyond == 0) {
-    // We've got an empty segment. Why?
-    const char c = state.input_buffer.at(0);
-    if (c == '/') {
-      return REPORT_ILLFORMED(state, "Empty segment in path");
-    }
-    state.impl.SetDecodeFunction(DecodeAfterSegment);
-    return EDecodeBufferStatus::kDecodingInProgress;
+    return DecodeAfterPath(state);
   } else {
     // We didn't find the end of the segment, so we need more input.
     state.partial_decode_function_if_full = DecodePartialPathSegmentStart;
@@ -503,7 +528,17 @@ size_t PrintValueTo(DecodeFunction decode_function, Print& out) {
   if (decode_function == symbol) {                                 \
     return mcucore::PrintProgmemStringData(MCU_PSD(#symbol), out); \
   }
+  /*
+Command for generating the 'table' below:
 
+egrep "^DECODER_FUNCTION\(\w+\) \{" mcunet/src/http1/request_decoder.cc | \
+  cut '-d ' -f1 | \
+  sed -e "s/DECODER_FUNCTION/  OUTPUT_METHOD_NAME/ ; s/$/;/" | \
+  sort
+
+  */
+
+  OUTPUT_METHOD_NAME(DecodeAfterPath);
   OUTPUT_METHOD_NAME(DecodeAfterSegment);
   OUTPUT_METHOD_NAME(DecodeError);
   OUTPUT_METHOD_NAME(DecodeHeaderLines);
@@ -522,9 +557,6 @@ size_t PrintValueTo(DecodeFunction decode_function, Print& out) {
   OUTPUT_METHOD_NAME(DecodeQueryStringStart);
   OUTPUT_METHOD_NAME(DecodeStartOfPath);
   OUTPUT_METHOD_NAME(MatchAfterRequestTarget);
-  OUTPUT_METHOD_NAME(MatchedEndOfHeaderLine);
-  OUTPUT_METHOD_NAME(MatchedEndOfHeaderLines);
-  OUTPUT_METHOD_NAME(MatchedHttpVersion1_1);
   OUTPUT_METHOD_NAME(MatchHeaderNameValueSeparator);
   OUTPUT_METHOD_NAME(MatchHeaderValueEnd);
   OUTPUT_METHOD_NAME(SkipOptionalWhitespace);
@@ -558,7 +590,7 @@ void RequestDecoderImpl::SetDecodeFunction(DecodeFunction decode_function) {
 
 EDecodeBufferStatus RequestDecoderImpl::DecodeBuffer(
     StringView& buffer, const bool buffer_is_full) {
-  MCU_VLOG(1) << MCU_PSD("DecodeBuffer size=") << buffer.size()
+  MCU_VLOG(1) << MCU_PSD("ENTER DecodeBuffer size=") << buffer.size()
               << MCU_NAME_VAL(buffer_is_full);
 
   MCU_DCHECK_LT(0, buffer.size());
@@ -571,9 +603,9 @@ EDecodeBufferStatus RequestDecoderImpl::DecodeBuffer(
   ActiveDecodingState active_state{.input_buffer = buffer, .impl = *this};
   auto status = EDecodeBufferStatus::kNeedMoreInput;
   while (!active_state.input_buffer.empty()) {
-    const auto old_decode_function = decode_function_;
     const auto buffer_size_before_decode = active_state.input_buffer.size();
 #ifdef MCU_REQUEST_DECODER_EXTRA_CHECKS
+    const auto old_decode_function = decode_function_;
     MCU_VLOG(2) << MCU_PSD("Passing ") << decode_function_
                 << MCU_PSD(" buffer ")
                 << mcucore::HexEscaped(active_state.input_buffer)
@@ -631,6 +663,8 @@ EDecodeBufferStatus RequestDecoderImpl::DecodeBuffer(
     }
   }
   buffer = active_state.input_buffer;
+  MCU_VLOG(1) << MCU_PSD("EXIT DecodeBuffer after consuming ")
+              << (start_size - buffer.size()) << MCU_PSD(" characters");
   return status;
 }
 

@@ -129,6 +129,35 @@ class RequestDecoder : /*private*/ RequestDecoderImpl {
   using RequestDecoderImpl::SetListener;
 };
 
+// Using namespace mcunet_http1_internal for unit tests.
+namespace mcunet_http1_internal {
+
+// Match characters allowed in a path segment.
+bool IsPChar(const char c);
+
+// Match characters allowed in a query string.
+bool IsQueryChar(const char c);
+
+// Match characters allowed in a token (e.g. a header name).
+bool IsTChar(const char c);
+
+// Match characters allowed in a header value, per RFC7230, Section 3.2.6.
+bool IsFieldContent(const char c);
+
+// Return the index of the first character that doesn't match the test function.
+// Returns StringView::kMaxSize if not found.
+mcucore::StringView::size_type FindFirstNotOf(const mcucore::StringView& view,
+                                              bool (*test)(char));
+
+// Removes leading whitespace characters, returns true when the first character
+// is not whitespace.
+bool SkipLeadingOptionalWhitespace(mcucore::StringView& view);
+
+// Remove optional whitespace from the end of the view, which is non-empty.
+// Returns true if optional whitespace was removed.
+bool TrimTrailingOptionalWhitespace(mcucore::StringView& view);
+
+}  // namespace mcunet_http1_internal
 }  // namespace http1
 }  // namespace mcunet
 
