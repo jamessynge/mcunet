@@ -18,6 +18,10 @@ std::vector<std::vector<std::string>> GenerateMultipleRequestPartitions(
 std::string AppendRemainder(const std::string& buffer,
                             const std::vector<std::string>& partition, int ndx);
 
+// Returns all char values except those where function `excluding` returns true.
+std::string AllCharsExcept(bool (*excluding)(char c));
+std::string AllCharsExcept(int (*excluding)(int c));
+
 }  // namespace test
 }  // namespace mcunet
 

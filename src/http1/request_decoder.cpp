@@ -228,7 +228,7 @@ EDecodeBufferStatus MatchedEndOfHeaderLine(ActiveDecodingState& state) {
 DECODER_FUNCTION(MatchHeaderValueEnd) {
   DECODER_ENTRY_CHECKS(state);
   return SkipLiteralAndDispatch(state, MCU_PSV("\r\n"), MatchedEndOfHeaderLine,
-                                MCU_PSD("Missing EOF after header"));
+                                MCU_PSD("Missing EOL after header"));
 }
 
 // The header value is apparently too long to fit in a buffer, so we pass
@@ -284,7 +284,7 @@ DECODER_FUNCTION(MatchHeaderNameValueSeparator) {
     state.impl.SetDecodeFunction(SkipOptionalWhitespace);
     return EDecodeBufferStatus::kDecodingInProgress;
   }
-  return REPORT_ILLFORMED(state, "Invalid header value start");
+  return REPORT_ILLFORMED(state, "Expected colon after name");
 }
 
 // The header name is apparently too long to fit in a buffer, so we pass
@@ -323,7 +323,7 @@ DECODER_FUNCTION(DecodeHeaderLines) {
 
   // No name, so we should be at the end of the headers.
   return SkipLiteralAndDispatch(state, MCU_PSV("\r\n"), MatchedEndOfHeaderLines,
-                                MCU_PSD("Illformed header name"));
+                                MCU_PSD("Expected header name"));
 }
 
 EDecodeBufferStatus MatchedHttpVersion1_1(ActiveDecodingState& state) {
@@ -490,17 +490,17 @@ DECODER_FUNCTION(DecodeHttpMethod) {
 
     for (StrSize pos = 1; pos < state.input_buffer.size(); ++pos) {
       const char c = state.input_buffer.at(pos);
-      if (c == ' ') {
+      if (isupper(c)) {
+        continue;
+      } else if (c == ' ') {
         // Reached the expected end of the method.
         auto text = state.input_buffer.prefix(pos);
         state.input_buffer.remove_prefix(pos + 1);
         state.impl.SetDecodeFunction(DecodeStartOfPath);
         state.impl.OnCompleteText(EToken::kHttpMethod, text);
         return EDecodeBufferStatus::kDecodingInProgress;
-      } else if (isupper(c)) {
-        continue;
       } else {
-        return REPORT_ILLFORMED(state, "Invalid or malformed HTTP Method");
+        return REPORT_ILLFORMED(state, "Invalid HTTP method end");
       }
     }
 
@@ -509,7 +509,7 @@ DECODER_FUNCTION(DecodeHttpMethod) {
     state.partial_decode_function_if_full = DecodeHttpMethodError;
     return EDecodeBufferStatus::kNeedMoreInput;
   }
-  return REPORT_ILLFORMED(state, "Invalid or malformed HTTP Method");
+  return REPORT_ILLFORMED(state, "Invalid HTTP method start");
 }
 
 DECODER_FUNCTION(DecodeError) {
@@ -563,11 +563,9 @@ egrep "^DECODER_FUNCTION\(\w+\) \{" mcunet/src/http1/request_decoder.cc | \
 
 #undef OUTPUT_METHOD_NAME
 
-  // COV_NF_START
-  MCU_CHECK(false) << MCU_FLASHSTR(
-      "Haven't implemented a case for decode_function");
-  return 0;
-  // COV_NF_END
+  MCU_CHECK(false) << MCU_FLASHSTR(                       // COV_NF_LINE
+      "Haven't implemented a case for decode_function");  // COV_NF_LINE
+  return 0;                                               // COV_NF_LINE
 }
 
 RequestDecoderImpl::RequestDecoderImpl() { decode_function_ = DecodeError; }
@@ -651,7 +649,7 @@ EDecodeBufferStatus RequestDecoderImpl::DecodeBuffer(
           active_state.partial_decode_function_if_full = nullptr;
           continue;
         }
-        return EDecodeBufferStatus::kIllFormed;
+        return EDecodeBufferStatus::kIllFormed;  // COV_NF_LINE
       }
       // Ask the caller to provide more input.
       break;
@@ -711,14 +709,6 @@ EDecodeBufferStatus RequestDecoderImpl::OnIllFormed(
     listener_->OnError(msg);
   }
   return EDecodeBufferStatus::kIllFormed;
-}
-
-void RequestDecoderImpl::OnError(mcucore::ProgmemString msg) {
-  MCU_VLOG(3) << "==>> OnError " << msg;
-  SetDecodeFunction(DecodeError);
-  if (listener_ != nullptr) {
-    listener_->OnError(msg);
-  }
 }
 
 }  // namespace http1

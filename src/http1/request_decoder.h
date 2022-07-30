@@ -27,6 +27,40 @@
 // context pointers) and thus of the application using this class. Until I have
 // evidence otherwise, I'll use a single listener, an instance of a class that
 // requires virtual functions.
+//
+////////////////////////////////////////////////////////////////////////////////
+//
+//   .oOOOo.                             o
+//  .O     o                     o      O
+//  o                                   o
+//  o                                   o
+//  o         .oOo. 'OoOo. .oOo  O  .oOoO  .oOo. `OoOo.
+//  O         O   o  o   O `Ooo. o  o   O  OooO'  o
+//  `o     .o o   O  O   o     O O  O   o  O      O
+//   `OoooO'  `OoO'  o   O `OoO' o' `OoO'o `OoO'  o
+//
+// I'm undecided/conflicted about whether to keep all of the existing events. I
+// worry that I'm providing too much detail, which requires extra code to
+// ignore. For example:
+//
+// * kPathStart
+//       For a valid origin-form request target, this doesn't tell us anything
+//       that isn't implied by kHttpMethod followed by one of kPathSegment,
+//       kPathAndUrlEnd, or kPathEndQueryStart. The event does allow room for
+//       more easily adding support for one of the other three forms of query
+//       (absolute, authority or asterisk), though I'm a bit skeptical of the
+//       likelihood of that.
+// * kPathEndQueryStart, et al
+//       It would be possible to just have a kPathEnd, followed by an optional
+//       sequence of kQueryString events. I.e., the presence of the question
+//       mark after the path doesn't *have* to be signaled to the decoder, esp.
+//       if it isn't a proxy that needs to be able to recreate the request.
+//       Alternately, I could have a kPathEnd, and then always emit a
+//       kQueryString+kFirst event with no data when a ? is found.
+// * kPathSeparator
+//       This only tells us something unique if it occurs at the end of the
+//       path; otherwise it can be inferred from receiving a subsequent
+//       kPathSegment event. OTOH, this one seems vaguely useful.
 
 #include <McuCore.h>
 
@@ -106,7 +140,6 @@ class RequestDecoderImpl {
   void OnPartialText(EPartialToken token, EPartialTokenPosition position,
                      mcucore::StringView text);
   void OnEnd();
-  void OnError(mcucore::ProgmemString msg);
   EDecodeBufferStatus OnIllFormed(mcucore::ProgmemString msg);
   void SetDecodeFunction(DecodeFunction decode_function);
 

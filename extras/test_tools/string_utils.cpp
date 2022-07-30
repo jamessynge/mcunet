@@ -3,6 +3,7 @@
 #include <McuCore.h>
 
 #include <algorithm>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -55,6 +56,28 @@ std::string AppendRemainder(const std::string& buffer,
   for (; ndx < partition.size(); ++ndx) {
     result += partition[ndx];
   }
+  return result;
+}
+
+std::string AllCharsExcept(bool (*excluding)(char c)) {
+  std::string result;
+  char c = std::numeric_limits<char>::min();
+  do {
+    if (!excluding(c)) {
+      result.push_back(c);
+    }
+  } while (c++ < std::numeric_limits<char>::max());
+  return result;
+}
+
+std::string AllCharsExcept(int (*excluding)(int c)) {
+  std::string result;
+  char c = std::numeric_limits<char>::min();
+  do {
+    if (!excluding(c)) {
+      result.push_back(c);
+    }
+  } while (c++ < std::numeric_limits<char>::max());
   return result;
 }
 
