@@ -18,14 +18,12 @@ const __FlashStringHelper* ToFlashStringHelper(EEvent v) {
       return MCU_FLASHSTR("PathStart");
     case EEvent::kPathSeparator:
       return MCU_FLASHSTR("PathSeparator");
-    case EEvent::kPathAndUrlEnd:
-      return MCU_FLASHSTR("PathAndUrlEnd");
-    case EEvent::kPathEndQueryStart:
-      return MCU_FLASHSTR("PathEndQueryStart");
-    case EEvent::kQueryAndUrlEnd:
-      return MCU_FLASHSTR("QueryAndUrlEnd");
+    case EEvent::kPathEnd:
+      return MCU_FLASHSTR("PathEnd");
     case EEvent::kHttpVersion1_1:
       return MCU_FLASHSTR("HttpVersion1_1");
+    case EEvent::kHeadersEnd:
+      return MCU_FLASHSTR("HeadersEnd");
   }
   return nullptr;
 #elif defined(TO_FLASH_STRING_HELPER_PREFER_IF_STATEMENTS)
@@ -35,31 +33,27 @@ const __FlashStringHelper* ToFlashStringHelper(EEvent v) {
   if (v == EEvent::kPathSeparator) {
     return MCU_FLASHSTR("PathSeparator");
   }
-  if (v == EEvent::kPathAndUrlEnd) {
-    return MCU_FLASHSTR("PathAndUrlEnd");
-  }
-  if (v == EEvent::kPathEndQueryStart) {
-    return MCU_FLASHSTR("PathEndQueryStart");
-  }
-  if (v == EEvent::kQueryAndUrlEnd) {
-    return MCU_FLASHSTR("QueryAndUrlEnd");
+  if (v == EEvent::kPathEnd) {
+    return MCU_FLASHSTR("PathEnd");
   }
   if (v == EEvent::kHttpVersion1_1) {
     return MCU_FLASHSTR("HttpVersion1_1");
+  }
+  if (v == EEvent::kHeadersEnd) {
+    return MCU_FLASHSTR("HeadersEnd");
   }
   return nullptr;
 #else   // Use flash string table.
   static MCU_FLASH_STRING_TABLE(
       flash_string_table,
-      MCU_FLASHSTR("PathStart"),          // 0: kPathStart
-      MCU_FLASHSTR("PathSeparator"),      // 1: kPathSeparator
-      MCU_FLASHSTR("PathAndUrlEnd"),      // 2: kPathAndUrlEnd
-      MCU_FLASHSTR("PathEndQueryStart"),  // 3: kPathEndQueryStart
-      MCU_FLASHSTR("QueryAndUrlEnd"),     // 4: kQueryAndUrlEnd
-      MCU_FLASHSTR("HttpVersion1_1"),     // 5: kHttpVersion1_1
+      MCU_FLASHSTR("PathStart"),       // 0: kPathStart
+      MCU_FLASHSTR("PathSeparator"),   // 1: kPathSeparator
+      MCU_FLASHSTR("PathEnd"),         // 2: kPathEnd
+      MCU_FLASHSTR("HttpVersion1_1"),  // 3: kHttpVersion1_1
+      MCU_FLASHSTR("HeadersEnd"),      // 4: kHeadersEnd
   );
   return mcucore::LookupFlashStringForDenseEnum<uint_fast8_t>(
-      flash_string_table, EEvent::kPathStart, EEvent::kHttpVersion1_1, v);
+      flash_string_table, EEvent::kPathStart, EEvent::kHeadersEnd, v);
 #endif  // TO_FLASH_STRING_HELPER_USE_SWITCH
 }
 
@@ -270,14 +264,12 @@ std::ostream& operator<<(std::ostream& os, EEvent v) {
       return os << "PathStart";
     case EEvent::kPathSeparator:
       return os << "PathSeparator";
-    case EEvent::kPathAndUrlEnd:
-      return os << "PathAndUrlEnd";
-    case EEvent::kPathEndQueryStart:
-      return os << "PathEndQueryStart";
-    case EEvent::kQueryAndUrlEnd:
-      return os << "QueryAndUrlEnd";
+    case EEvent::kPathEnd:
+      return os << "PathEnd";
     case EEvent::kHttpVersion1_1:
       return os << "HttpVersion1_1";
+    case EEvent::kHeadersEnd:
+      return os << "HeadersEnd";
   }
   return os << "Unknown EEvent, value=" << static_cast<int64_t>(v);
 }

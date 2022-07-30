@@ -1,7 +1,7 @@
 #ifndef MCUNET_EXTRAS_TEST_TOOLS_STRING_UTILS_H_
 #define MCUNET_EXTRAS_TEST_TOOLS_STRING_UTILS_H_
 
-// TODO(jamessynge): Describe why this file exists/what it provides.
+// Helper functions focused on testing the HTTP request decoder.
 
 #include <string>
 #include <vector>
@@ -21,6 +21,8 @@ std::string AppendRemainder(const std::string& buffer,
 // Returns all char values except those where function `excluding` returns true.
 std::string AllCharsExcept(bool (*excluding)(char c));
 std::string AllCharsExcept(int (*excluding)(int c));
+
+std::vector<std::string> AllRegisteredMethodNames();
 
 }  // namespace test
 }  // namespace mcunet

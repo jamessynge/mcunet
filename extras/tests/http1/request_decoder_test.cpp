@@ -25,8 +25,9 @@ using ::mcucore::StringView;
 using ::mcunet::http1::mcunet_http1_internal::IsFieldContent;
 using ::mcunet::http1::mcunet_http1_internal::IsPChar;
 using ::mcunet::http1::mcunet_http1_internal::IsQueryChar;
-using ::mcunet::http1::mcunet_http1_internal::IsTChar;
+using ::mcunet::http1::mcunet_http1_internal::IsTokenChar;
 using ::mcunet::test::AllCharsExcept;
+using ::mcunet::test::AllRegisteredMethodNames;
 using ::mcunet::test::AppendRemainder;
 using ::mcunet::test::GenerateMultipleRequestPartitions;
 using ::testing::InSequence;
@@ -148,40 +149,39 @@ TEST(RequestDecoderTest, ResetRequired) {
   EXPECT_EQ(buffer, original);
 }
 
-TEST(RequestDecoderTest, SmallestHomePageRequest) {
+TEST(RequestDecoderTest, ShortRequest) {
   RequestDecoder decoder;
-  const char kRequestHeader[] =
-      "GET / HTTP/1.1\r\n"
-      "\r\n";
   const char kOptionalBody[] = "NotAHeaderName:NotAHeaderValue\r\n\r\n";
-
   for (const auto body : {"", kOptionalBody}) {
-    for (auto partition : GenerateMultipleRequestPartitions(
-             absl::StrCat(kRequestHeader, body))) {
-      LOG(INFO) << "\n"
-                << "----------------------------------------"
-                << "----------------------------------------";
-      StrictMock<MockRequestDecoderListener> rdl;
-      InSequence s;
-      ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
-      ExpectEvent(rdl, EEvent::kPathStart);
-      ExpectEvent(rdl, EEvent::kPathAndUrlEnd);
-      ExpectEvent(rdl, EEvent::kHttpVersion1_1);
-      EXPECT_CALL(rdl, OnEnd);
+    for (const auto method : AllRegisteredMethodNames()) {
+      const auto request =
+          absl::StrCat(method, " / HTTP/1.1\r\n", "\r\n", body);
+      for (auto partition : GenerateMultipleRequestPartitions(request)) {
+        LOG(INFO) << "\n"
+                  << "----------------------------------------"
+                  << "----------------------------------------";
+        StrictMock<MockRequestDecoderListener> rdl;
+        InSequence s;
+        ExpectCompleteText(rdl, EToken::kHttpMethod, method);
+        ExpectEvent(rdl, EEvent::kPathStart);
+        ExpectEvent(rdl, EEvent::kPathEnd);
+        ExpectEvent(rdl, EEvent::kHttpVersion1_1);
+        ExpectEvent(rdl, EEvent::kHeadersEnd);
 
-      const auto [status, buffer, remainder] =
-          DecodePartitionedRequest(decoder, &rdl, partition);
-      EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
-      EXPECT_THAT(body, StartsWith(buffer));
-      EXPECT_THAT(remainder, body);
-      if (TestHasFailed()) {
-        return;
+        const auto [status, buffer, remainder] =
+            DecodePartitionedRequest(decoder, &rdl, partition);
+        EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
+        EXPECT_THAT(body, StartsWith(buffer));
+        EXPECT_THAT(remainder, body);
+        if (TestHasFailed()) {
+          return;
+        }
       }
     }
   }
 }
 
-TEST(RequestDecoderTest, SmallestDeviceApiGetRequest) {
+TEST(RequestDecoderTest, DeviceApiGetRequest) {
   RequestDecoder decoder;
   const char kRequestHeader[] =
       "OPTIONS /api/v1/safetymonitor/0/issafe HTTP/1.1\r\n"
@@ -207,9 +207,9 @@ TEST(RequestDecoderTest, SmallestDeviceApiGetRequest) {
       ExpectCompleteText(rdl, EToken::kPathSegment, "0");
       ExpectEvent(rdl, EEvent::kPathSeparator);
       ExpectCompleteText(rdl, EToken::kPathSegment, "issafe");
-      ExpectEvent(rdl, EEvent::kPathAndUrlEnd);
+      ExpectEvent(rdl, EEvent::kPathEnd);
       ExpectEvent(rdl, EEvent::kHttpVersion1_1);
-      EXPECT_CALL(rdl, OnEnd);
+      ExpectEvent(rdl, EEvent::kHeadersEnd);
 
       const auto [status, buffer, remainder] =
           DecodePartitionedRequest(decoder, &rdl, partition);
@@ -243,11 +243,11 @@ TEST(RequestDecoderTest, RequestTargetEndsWithSlash) {
       ExpectEvent(rdl, EEvent::kPathStart);
       ExpectCompleteText(rdl, EToken::kPathSegment, "setup");
       ExpectEvent(rdl, EEvent::kPathSeparator);
-      ExpectEvent(rdl, EEvent::kPathAndUrlEnd);
+      ExpectEvent(rdl, EEvent::kPathEnd);
       ExpectEvent(rdl, EEvent::kHttpVersion1_1);
       ExpectCompleteText(rdl, EToken::kHeaderName, "Host");
       ExpectCompleteText(rdl, EToken::kHeaderValue, "example.com");
-      EXPECT_CALL(rdl, OnEnd);
+      ExpectEvent(rdl, EEvent::kHeadersEnd);
 
       const auto [status, buffer, remainder] =
           DecodePartitionedRequest(decoder, &rdl, partition);
@@ -279,12 +279,12 @@ TEST(RequestDecoderTest, RootPathPlusEmptyQueryString) {
       InSequence s;
       ExpectCompleteText(rdl, EToken::kHttpMethod, "POST");
       ExpectEvent(rdl, EEvent::kPathStart);
-      ExpectEvent(rdl, EEvent::kPathEndQueryStart);
-      ExpectEvent(rdl, EEvent::kQueryAndUrlEnd);
+      ExpectEvent(rdl, EEvent::kPathEnd);
+      ExpectPartialTextMatching(rdl, EPartialToken::kQueryString, "");
       ExpectEvent(rdl, EEvent::kHttpVersion1_1);
       ExpectCompleteText(rdl, EToken::kHeaderName, "Host");
       ExpectCompleteText(rdl, EToken::kHeaderValue, "some name");
-      EXPECT_CALL(rdl, OnEnd);
+      ExpectEvent(rdl, EEvent::kHeadersEnd);
 
       const auto [status, buffer, remainder] =
           DecodePartitionedRequest(decoder, &rdl, partition);
@@ -319,7 +319,7 @@ TEST(RequestDecoderTest, MatchVariousHeaderForms) {
       InSequence s;
       ExpectCompleteText(rdl, EToken::kHttpMethod, "PUT");
       ExpectEvent(rdl, EEvent::kPathStart);
-      ExpectEvent(rdl, EEvent::kPathAndUrlEnd);
+      ExpectEvent(rdl, EEvent::kPathEnd);
       ExpectEvent(rdl, EEvent::kHttpVersion1_1);
       ExpectCompleteText(rdl, EToken::kHeaderName, "name");
       ExpectCompleteText(rdl, EToken::kHeaderValue, "some.text");
@@ -329,7 +329,7 @@ TEST(RequestDecoderTest, MatchVariousHeaderForms) {
       ExpectCompleteText(rdl, EToken::kHeaderValue, "interesting\tcharacters");
       ExpectCompleteText(rdl, EToken::kHeaderName, "N-A-M-E");
       ExpectCompleteText(rdl, EToken::kHeaderValue, "characters&in?it");
-      EXPECT_CALL(rdl, OnEnd);
+      ExpectEvent(rdl, EEvent::kHeadersEnd);
 
       const auto [status, buffer, remainder] =
           DecodePartitionedRequest(decoder, &rdl, partition);
@@ -374,14 +374,12 @@ TEST(RequestDecoderTest, LongPathSegments) {
         if (slash_at_end) {
           ExpectEvent(rdl, EEvent::kPathSeparator);
         }
+        ExpectEvent(rdl, EEvent::kPathEnd);
         if (query_after_path) {
-          ExpectEvent(rdl, EEvent::kPathEndQueryStart);
-          ExpectEvent(rdl, EEvent::kQueryAndUrlEnd);
-        } else {
-          ExpectEvent(rdl, EEvent::kPathAndUrlEnd);
+          ExpectPartialTextMatching(rdl, EPartialToken::kQueryString, "");
         }
         ExpectEvent(rdl, EEvent::kHttpVersion1_1);
-        EXPECT_CALL(rdl, OnEnd);
+        ExpectEvent(rdl, EEvent::kHeadersEnd);
 
         const auto [status, buffer, remainder] =
             DecodePartitionedRequest(decoder, &rdl, partition);
@@ -418,11 +416,11 @@ TEST(RequestDecoderTest, LongQueryString) {
             ExpectEvent(rdl, EEvent::kPathSeparator);
           }
         }
-        ExpectEvent(rdl, EEvent::kPathEndQueryStart);
+        ExpectEvent(rdl, EEvent::kPathEnd);
         ExpectPartialTextMatching(rdl, EPartialToken::kQueryString,
                                   query_string);
         ExpectEvent(rdl, EEvent::kHttpVersion1_1);
-        EXPECT_CALL(rdl, OnEnd);
+        ExpectEvent(rdl, EEvent::kHeadersEnd);
 
         const auto [status, buffer, remainder] =
             DecodePartitionedRequest(decoder, &rdl, partition);
@@ -458,13 +456,13 @@ TEST(RequestDecoderTest, LongHeaderNamesOrValues) {
     InSequence s;
     ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
     ExpectEvent(rdl, EEvent::kPathStart);
-    ExpectEvent(rdl, EEvent::kPathAndUrlEnd);
+    ExpectEvent(rdl, EEvent::kPathEnd);
     ExpectEvent(rdl, EEvent::kHttpVersion1_1);
     ExpectPartialTextMatching(rdl, EPartialToken::kHeaderName, kName1);
     ExpectPartialTextMatching(rdl, EPartialToken::kHeaderValue, kValue1);
     ExpectPartialTextMatching(rdl, EPartialToken::kHeaderName, kName2);
     ExpectPartialTextMatching(rdl, EPartialToken::kHeaderValue, kValue2);
-    EXPECT_CALL(rdl, OnEnd);
+    ExpectEvent(rdl, EEvent::kHeadersEnd);
 
     const auto [status, buffer, remainder] =
         DecodePartitionedRequest(decoder, &rdl, partition);
@@ -482,7 +480,8 @@ TEST(RequestDecoderTest, LongHeaderNamesOrValues) {
 
 TEST(RequestDecoderTest, InvalidMethodStart) {
   RequestDecoder decoder;
-  for (const char c : AllCharsExcept(std::isupper)) {
+  for (const char c :
+       AllCharsExcept([](char c) { return std::isupper(c) || c == '-'; })) {
     LOG(INFO) << "\n"
               << "----------------------------------------"
               << "----------------------------------------";
@@ -504,23 +503,25 @@ TEST(RequestDecoderTest, InvalidMethodStart) {
 
 TEST(RequestDecoderTest, InvalidMethodEnd) {
   RequestDecoder decoder;
-  for (const char c :
-       AllCharsExcept([](char c) { return std::isupper(c) || c == ' '; })) {
-    for (const auto space_before_path : {true, false}) {
+  for (const auto space_before_path : {true, false}) {
+    for (const char c : AllCharsExcept(
+             [](char c) { return std::isupper(c) || c == '-' || c == ' '; })) {
       LOG(INFO) << "\n"
                 << "----------------------------------------"
                 << "----------------------------------------";
-      const auto request =
-          absl::StrCat("GET", std::string(1, c), (space_before_path ? " " : ""),
+      const auto corrupt =
+          absl::StrCat(std::string(1, c), (space_before_path ? " " : ""),
                        "/ HTTP/1.1\r\n"
                        "\r\n");
+      const auto request = absl::StrCat("GET", corrupt);
       std::string buffer = request;
       StrictMock<MockRequestDecoderListener> rdl;
+      ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
       ExpectError(rdl, "Invalid HTTP method end");
 
       const auto status = ResetAndDecodeFullBuffer(decoder, &rdl, buffer);
       EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
-      EXPECT_EQ(buffer, request);
+      EXPECT_EQ(buffer, corrupt);
       if (TestHasFailed()) {
         return;
       }
@@ -601,7 +602,7 @@ TEST(RequestDecoderTest, InvalidPathChar) {
       if (slash_at_end) {
         ExpectEvent(rdl, EEvent::kPathSeparator);
       }
-      ExpectEvent(rdl, EEvent::kPathAndUrlEnd);
+      ExpectEvent(rdl, EEvent::kPathEnd);
       ExpectError(rdl, "Invalid request target end");
 
       const auto status = ResetAndDecodeFullBuffer(decoder, &rdl, buffer);
@@ -632,11 +633,11 @@ TEST(RequestDecoderTest, InvalidQueryChar) {
       StrictMock<MockRequestDecoderListener> rdl;
       ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
       ExpectEvent(rdl, EEvent::kPathStart);
-      ExpectEvent(rdl, EEvent::kPathEndQueryStart);
+      ExpectEvent(rdl, EEvent::kPathEnd);
       if (has_query_text) {
         ExpectPartialTextMatching(rdl, EPartialToken::kQueryString, "a/b?c=d");
       } else {
-        ExpectEvent(rdl, EEvent::kQueryAndUrlEnd);
+        ExpectPartialTextMatching(rdl, EPartialToken::kQueryString, "");
       }
       ExpectError(rdl, "Invalid request target end");
 
@@ -665,7 +666,7 @@ TEST(RequestDecoderTest, UnsupportedHttpVersion) {
       InSequence s;
       ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
       ExpectEvent(rdl, EEvent::kPathStart);
-      ExpectEvent(rdl, EEvent::kPathAndUrlEnd);
+      ExpectEvent(rdl, EEvent::kPathEnd);
       ExpectError(rdl, "Unsupported HTTP version");
 
       const auto [status, buffer, remainder] =
@@ -683,7 +684,7 @@ TEST(RequestDecoderTest, UnsupportedHttpVersion) {
 TEST(RequestDecoderTest, InvalidHeaderNameStart) {
   RequestDecoder decoder;
   for (const char c :
-       AllCharsExcept([](char c) { return IsTChar(c) || c == '\r'; })) {
+       AllCharsExcept([](char c) { return IsTokenChar(c) || c == '\r'; })) {
     LOG(INFO) << "\n"
               << "----------------------------------------"
               << "----------------------------------------";
@@ -695,7 +696,7 @@ TEST(RequestDecoderTest, InvalidHeaderNameStart) {
     StrictMock<MockRequestDecoderListener> rdl;
     ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
     ExpectEvent(rdl, EEvent::kPathStart);
-    ExpectEvent(rdl, EEvent::kPathAndUrlEnd);
+    ExpectEvent(rdl, EEvent::kPathEnd);
     ExpectEvent(rdl, EEvent::kHttpVersion1_1);
     ExpectError(rdl, "Expected header name");
 
@@ -711,7 +712,7 @@ TEST(RequestDecoderTest, InvalidHeaderNameStart) {
 TEST(RequestDecoderTest, InvalidHeaderNameValueSeparator) {
   RequestDecoder decoder;
   for (const char c :
-       AllCharsExcept([](char c) { return IsTChar(c) || c == ':'; })) {
+       AllCharsExcept([](char c) { return IsTokenChar(c) || c == ':'; })) {
     LOG(INFO) << "\n"
               << "----------------------------------------"
               << "----------------------------------------";
@@ -723,7 +724,7 @@ TEST(RequestDecoderTest, InvalidHeaderNameValueSeparator) {
     StrictMock<MockRequestDecoderListener> rdl;
     ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
     ExpectEvent(rdl, EEvent::kPathStart);
-    ExpectEvent(rdl, EEvent::kPathAndUrlEnd);
+    ExpectEvent(rdl, EEvent::kPathEnd);
     ExpectEvent(rdl, EEvent::kHttpVersion1_1);
     ExpectCompleteText(rdl, EToken::kHeaderName, "Host");
     ExpectError(rdl, "Expected colon after name");
@@ -758,7 +759,7 @@ TEST(RequestDecoderTest, EmptyHeaderValue) {
     StrictMock<MockRequestDecoderListener> rdl;
     ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
     ExpectEvent(rdl, EEvent::kPathStart);
-    ExpectEvent(rdl, EEvent::kPathAndUrlEnd);
+    ExpectEvent(rdl, EEvent::kPathEnd);
     ExpectEvent(rdl, EEvent::kHttpVersion1_1);
     ExpectCompleteText(rdl, EToken::kHeaderName, "Host");
     ExpectError(rdl, "Empty header value");
@@ -786,7 +787,7 @@ TEST(RequestDecoderTest, IncorrectHeaderLineEnd) {
     StrictMock<MockRequestDecoderListener> rdl;
     ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
     ExpectEvent(rdl, EEvent::kPathStart);
-    ExpectEvent(rdl, EEvent::kPathAndUrlEnd);
+    ExpectEvent(rdl, EEvent::kPathEnd);
     ExpectEvent(rdl, EEvent::kHttpVersion1_1);
     ExpectCompleteText(rdl, EToken::kHeaderName, "name");
     ExpectCompleteText(rdl, EToken::kHeaderValue, "value");

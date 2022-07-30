@@ -2,6 +2,7 @@
 #define MCUNET_EXTRAS_TEST_TOOLS_MOCK_REQUEST_DECODER_LISTENER_H_
 
 #include <string>
+#include <string_view>
 
 #include "gmock/gmock.h"
 #include "http1/request_decoder.h"
@@ -19,14 +20,12 @@ class MockRequestDecoderListener : public RequestDecoderListener {
 
   MOCK_METHOD(void, OnPartialText, (const OnPartialTextData& data), (override));
 
-  MOCK_METHOD(void, OnEnd, (), (override));
-
   MOCK_METHOD(void, OnError, (const OnErrorData& data), (override));
 };
 
 void ExpectEvent(MockRequestDecoderListener& rdl, EEvent event);
 void ExpectCompleteText(MockRequestDecoderListener& rdl, EToken token,
-                        std::string text);
+                        std::string_view text);
 void ExpectPartialTextMatching(MockRequestDecoderListener& rdl,
                                EPartialToken token, std::string text);
 void ExpectError(MockRequestDecoderListener& rdl, std::string message);

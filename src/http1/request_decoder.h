@@ -20,67 +20,41 @@
 // specified by the ASCOM Alpaca standard), a decoder is provided by
 // WwwFormUrlEncodedDecoder.
 //
+// Similarly, there isn't a single format for header values, so parsing them is
+// delegated to the listener.
+//
 // NOTE: While I was tempted to avoid using virtual functions in the listener
 // API in order to avoid virtual-function-tables, which are stored in RAM when
 // compiled by avr-gcc, I decided that doing so was likely to increase the
-// complexity of this class (e.g. multiple listener methods, and multiple
-// context pointers) and thus of the application using this class. Until I have
-// evidence otherwise, I'll use a single listener, an instance of a class that
-// requires virtual functions.
-//
-////////////////////////////////////////////////////////////////////////////////
-//
-//   .oOOOo.                             o
-//  .O     o                     o      O
-//  o                                   o
-//  o                                   o
-//  o         .oOo. 'OoOo. .oOo  O  .oOoO  .oOo. `OoOo.
-//  O         O   o  o   O `Ooo. o  o   O  OooO'  o
-//  `o     .o o   O  O   o     O O  O   o  O      O
-//   `OoooO'  `OoO'  o   O `OoO' o' `OoO'o `OoO'  o
-//
-// I'm undecided/conflicted about whether to keep all of the existing events. I
-// worry that I'm providing too much detail, which requires extra code to
-// ignore. For example:
-//
-// * kPathStart
-//       For a valid origin-form request target, this doesn't tell us anything
-//       that isn't implied by kHttpMethod followed by one of kPathSegment,
-//       kPathAndUrlEnd, or kPathEndQueryStart. The event does allow room for
-//       more easily adding support for one of the other three forms of query
-//       (absolute, authority or asterisk), though I'm a bit skeptical of the
-//       likelihood of that.
-// * kPathEndQueryStart, et al
-//       It would be possible to just have a kPathEnd, followed by an optional
-//       sequence of kQueryString events. I.e., the presence of the question
-//       mark after the path doesn't *have* to be signaled to the decoder, esp.
-//       if it isn't a proxy that needs to be able to recreate the request.
-//       Alternately, I could have a kPathEnd, and then always emit a
-//       kQueryString+kFirst event with no data when a ? is found.
-// * kPathSeparator
-//       This only tells us something unique if it occurs at the end of the
-//       path; otherwise it can be inferred from receiving a subsequent
-//       kPathSegment event. OTOH, this one seems vaguely useful.
+// complexity of this class (e.g. multiple listener methods, and perhaps
+// multiple context pointers) and thus of the application using this class.
+// Until I have evidence otherwise, I'll use a single listener, an instance of a
+// class that requires virtual functions.
 
 #include <McuCore.h>
 
 #include "http1/request_decoder_constants.h"
 
-namespace mcunet {
 // I don't normally want to have many nested namespaces, but the decoder has
 // helper classes and several enum definitions, with names that I'd like to keep
 // relatively short, and yet not readily conflict with other similar enums, so
 // I've chosen to use nested namespaces for the decoder and helpers.
+namespace mcunet {
 namespace http1 {
 
+// Forward declarations.
 struct ActiveDecodingState;
+struct RequestDecoderListener;
 
-// The decoder will use an instance of one of the following classes to provide
-// data to the listener at key points in the decoding process.
-
+// The decoder will use an instance of one of the classes derived from
+// BaseListenerCallbackData to provide data to the listener at key points in the
+// decoding process.
 struct BaseListenerCallbackData {
   explicit BaseListenerCallbackData(const ActiveDecodingState& state)
       : state(state) {}
+
+  // Change the listener.
+  void SetListener(RequestDecoderListener* listener);
 
   // Puts the decoder into an error state, with the effect that it stops
   // decoding and returns kInternalError.
@@ -117,29 +91,20 @@ struct OnErrorData : BaseListenerCallbackData {
 // to the listener.
 struct RequestDecoderListener {
   virtual ~RequestDecoderListener() {}
+
+  // `data.event` has occurred; usually means that some particular fixed text
+  // has been matched.
   virtual void OnEvent(const OnEventData& data) = 0;
 
-  // Notifies the listener that the complete value of the specified token is in
-  // `text`.
+  // `data.token` has been matched; it's complete value is in `data.text`.
   virtual void OnCompleteText(const OnCompleteTextData& data) = 0;
 
-  // TODO(jamessynge): Consider whether to add arg(s) to OnPartialText to
-  // indicate if it is the first call or the last call of the sequence of calls
-  // for an oversize token value (e.g. an enum EPartialTokenPosition {kFirst,
-  // kMiddle, kEnd};). That obviates the need to add an OnStartPartialText,
-  // and *may* simplify listener impls.
-
-  // Notifies the listener that *some* of the value of the specified token is in
-  // `text`. This should only happen if the entity being decoded it longer than
-  // the maximum size that the caller can provide in a single StringView.
+  // Some portion of `data.token` has been matched, with that portion in
+  // `data.text`. The text may be empty, so far just for positions kFirst and
+  // kLast.
   virtual void OnPartialText(const OnPartialTextData& data) = 0;
 
-  // All done.
-  virtual void OnEnd() = 0;
-
-  // TODO(jamessynge): Consider changing msg type to ArrayView<ProgmemString> or
-  // ArrayView<AnyPrintable>. This assumes that the listener has the ability to
-  // emit or store the error message based on the msg.
+  // An error has occurred, as described in `data.message`.
   virtual void OnError(const OnErrorData& data) = 0;
 };
 
@@ -149,9 +114,6 @@ class RequestDecoderImpl {
 
   RequestDecoderImpl();
 
-  // RequestDecoderListener* listener() const { return listener_; }
-  // void SetDecodeFunction(DecodeFunction decode_function);
-
   // Reset the decoder, ready to decode a new request. Among other things, this
   // clears the listener, so SetListener must be called if decoding events are
   // desired (most likely!). The reason to clear the listener is the expectation
@@ -159,7 +121,14 @@ class RequestDecoderImpl {
   // might switch listeners to choose a listener appropriate for a particular
   // path prefix).
   void Reset();
+
+  // Set the listener to be used when DecodeBuffer is next called.
   void SetListener(RequestDecoderListener& listener);
+
+  // Clear listener_ (set to nullptr). This means that the decoder will drop
+  // events on the floor. This could be useful if one wants to discard the
+  // remainder of a message header, continuing decoding until EEvent::kComplete
+  // is returned by DecodeBuffer.
   void ClearListener();
 
   // Decodes some or all of the contents of buffer. If buffer_is_full is true,
@@ -175,6 +144,8 @@ class RequestDecoderImpl {
  private:
   friend class ActiveDecodingState;
 
+  // Pointer to the next function to be used for decoding. Changes as different
+  // entities in a request header is matched.
   DecodeFunction decode_function_;
 
   // If nullptr, no events are delivered by the decoder, but decoding continues.
@@ -197,6 +168,9 @@ class RequestDecoder : /*private*/ RequestDecoderImpl {
 // called by unit tests. They are not a part of the public API of the decoder.
 namespace mcunet_http1_internal {
 
+// Match characters allowed BY THIS DECODER in a method name.
+bool IsMethodChar(const char c);
+
 // Match characters allowed in a path segment.
 bool IsPChar(const char c);
 
@@ -204,7 +178,7 @@ bool IsPChar(const char c);
 bool IsQueryChar(const char c);
 
 // Match characters allowed in a token (e.g. a header name).
-bool IsTChar(const char c);
+bool IsTokenChar(const char c);
 
 // Match characters allowed in a header value, per RFC7230, Section 3.2.6.
 bool IsFieldContent(const char c);

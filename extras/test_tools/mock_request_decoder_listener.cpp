@@ -50,7 +50,7 @@ void ExpectEvent(MockRequestDecoderListener& rdl, const EEvent event) {
 }
 
 void ExpectCompleteText(MockRequestDecoderListener& rdl, const EToken token,
-                        const std::string text) {
+                        const std::string_view text) {
   EXPECT_CALL(rdl, OnCompleteText(IsCompleteText(token, text)));
 }
 

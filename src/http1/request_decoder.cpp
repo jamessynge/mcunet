@@ -29,6 +29,16 @@ bool IsOptionalWhitespace(const char c) { return c == ' ' || c == '\t'; }
 // be used to implement IsPChar, IsQueryChar, etc., with an option to store the
 // bytes in PROGMEM. Needs evaluation of the performance implications.
 
+// Match characters allowed BY THIS DECODER in a method name.
+// https://www.iana.org/assignments/http-methods/http-methods.xhtml contains the
+// registered HTTP methods. The names are uppercase ASCII, two with a hyphen
+// separating words in the name, and those registered names all we're likely to
+// care about, so those are all that I'm attempting to support here. Note that
+// "*" is also in the registry, though in that case to document that it is
+// reserved, and must not be used as a method name; for more info, see:
+// https://www.rfc-editor.org/rfc/rfc9110.html#name-method-registration
+bool IsMethodChar(const char c) { return isUpperCase(c) || c == '-'; }
+
 // Match characters allowed in a path segment.
 MCU_CONSTEXPR_VAR StringView kExtraPChars("-._~!$&'()*+,;=%");
 bool IsPChar(const char c) {
@@ -40,7 +50,7 @@ bool IsQueryChar(const char c) { return IsPChar(c) || c == '/' || c == '?'; }
 
 // Match characters allowed in a token (e.g. a header name).
 MCU_CONSTEXPR_VAR StringView kExtraTChars("!#$%&'*+-.^_`|~");
-bool IsTChar(const char c) {
+bool IsTokenChar(const char c) {
   return isAlphaNumeric(c) || kExtraTChars.contains(c);
 }
 
@@ -143,6 +153,10 @@ struct ActiveDecodingState {
         full_decoder_input(full_decoder_input),
         base_data(*this) {}
 
+  void SetListener(RequestDecoderListener* listener) {
+    impl.listener_ = listener;
+  }
+
   void SetDecodeFunction(DecodeFunction decode_function) {
     MCU_VLOG(2) << MCU_PSD("Set") << MCU_NAME_VAL(decode_function);
     impl.decode_function_ = decode_function;
@@ -181,11 +195,12 @@ struct ActiveDecodingState {
     }
   }
 
-  void OnEnd() {
-    MCU_VLOG(3) << "==>> OnEnd";
+  void OnHeadersEnd() {
+    MCU_VLOG(3) << "==>> OnHeadersEnd";
     SetDecodeFunction(DecodeInternalError);
     if (impl.listener_ != nullptr) {
-      impl.listener_->OnEnd();
+      on_event_data.event = EEvent::kHeadersEnd;
+      impl.listener_->OnEvent(on_event_data);
     }
   }
 
@@ -367,24 +382,25 @@ DECODER_FUNCTION(MatchHeaderNameValueSeparator) {
 // The header name is apparently too long to fit in a buffer, so we pass
 // whatever we can find in the input_buffer to the listener.
 DECODER_FUNCTION(DecodePartialHeaderName) {
-  return DecodePartialTokenHelper(state, IsTChar, EPartialToken::kHeaderName,
+  return DecodePartialTokenHelper(state, IsTokenChar,
+                                  EPartialToken::kHeaderName,
                                   MatchHeaderNameValueSeparator);
 }
 
 DECODER_FUNCTION(DecodePartialHeaderNameStart) {
   return DecodePartialTokenStartHelper(
-      state, IsTChar, EPartialToken::kHeaderName, DecodePartialHeaderName);
+      state, IsTokenChar, EPartialToken::kHeaderName, DecodePartialHeaderName);
 }
 
 EDecodeBufferStatus MatchedEndOfHeaderLines(ActiveDecodingState& state) {
-  state.OnEnd();
+  state.OnHeadersEnd();
   return EDecodeBufferStatus::kComplete;
 }
 
 // We're at the start of a header line, or at the end of the headers.
 DECODER_FUNCTION(DecodeHeaderLines) {
   DECODER_ENTRY_CHECKS(state);
-  const auto beyond = FindFirstNotOf(state.input_buffer, IsTChar);
+  const auto beyond = FindFirstNotOf(state.input_buffer, IsTokenChar);
   if (0 < beyond && beyond < StringView::kMaxSize) {
     // We've got a non-empty field name.
     const auto name = state.input_buffer.prefix(beyond);
@@ -437,33 +453,6 @@ DECODER_FUNCTION(DecodePartialQueryString) {
       state, IsQueryChar, EPartialToken::kQueryString, MatchAfterRequestTarget);
 }
 
-// We have a buffer whose contents immediately follow the "?" that marks the
-// start of a query string. However, we don't choose to support OnCompleteText
-// calls for the query string, because it can be quite variable in length, and
-// it shouldn't matter to the listener whether it gets it all at once or in
-// parts. Therefore, if we have any query chars, we pass them to the
-// OnPartialText function. This is unlike the other DecodeXyzStart functions.
-DECODER_FUNCTION(DecodeQueryStringStart) {
-  DECODER_ENTRY_CHECKS(state);
-  auto beyond = FindFirstNotOf(state.input_buffer, IsQueryChar);
-  MCU_VLOG_VAR(1, beyond);
-  if (beyond == 0) {
-    // The query is empty, which is wierd but valid.
-    state.SetDecodeFunction(MatchAfterRequestTarget);
-    state.OnEvent(EEvent::kQueryAndUrlEnd);
-    return EDecodeBufferStatus::kDecodingInProgress;
-  }
-  if (beyond == StringView::kMaxSize) {
-    beyond = state.input_buffer.size();
-  }
-  const auto partial_query_string = state.input_buffer.prefix(beyond);
-  state.input_buffer.remove_prefix(beyond);
-  state.SetDecodeFunction(DecodePartialQueryString);
-  state.OnPartialText(EPartialToken::kQueryString,
-                      EPartialTokenPosition::kFirst, partial_query_string);
-  return EDecodeBufferStatus::kDecodingInProgress;
-}
-
 // We've reached the end of valid path characters. Are we at the start of the
 // query string, or and the end of the request target?
 DECODER_FUNCTION(DecodeAfterPath) {
@@ -473,13 +462,13 @@ DECODER_FUNCTION(DecodeAfterPath) {
   if (c == '?') {
     // End of the path, start of the query.
     state.input_buffer.remove_prefix(1);
-    state.SetDecodeFunction(DecodeQueryStringStart);
-    state.OnEvent(EEvent::kPathEndQueryStart);
+    state.SetDecodeFunction(DecodePartialQueryString);
+    state.OnPartialText(EPartialToken::kQueryString,
+                        EPartialTokenPosition::kFirst, StringView());
     return EDecodeBufferStatus::kDecodingInProgress;
   }
   // Appears to be the end of the request target (path and optional query).
   state.SetDecodeFunction(MatchAfterRequestTarget);
-  state.OnEvent(EEvent::kPathAndUrlEnd);
   return EDecodeBufferStatus::kDecodingInProgress;
 }
 
@@ -494,9 +483,10 @@ DECODER_FUNCTION(DecodeAfterSegment) {
     state.SetDecodeFunction(DecodePathSegment);
     state.OnEvent(EEvent::kPathSeparator);
     return EDecodeBufferStatus::kDecodingInProgress;
-  } else {
-    return DecodeAfterPath(state);
   }
+  state.SetDecodeFunction(DecodeAfterPath);
+  state.OnEvent(EEvent::kPathEnd);
+  return EDecodeBufferStatus::kDecodingInProgress;
 }
 
 // The path segment is apparently too long to fit in a buffer, so we pass
@@ -526,7 +516,9 @@ DECODER_FUNCTION(DecodePathSegment) {
     state.OnCompleteText(EToken::kPathSegment, segment);
     return EDecodeBufferStatus::kDecodingInProgress;
   } else if (beyond == 0) {
-    return DecodeAfterPath(state);
+    state.SetDecodeFunction(DecodeAfterPath);
+    state.OnEvent(EEvent::kPathEnd);
+    return EDecodeBufferStatus::kDecodingInProgress;
   } else {
     // We didn't find the end of the segment, so we need more input.
     state.partial_decode_function_if_full = DecodePartialPathSegmentStart;
@@ -547,6 +539,19 @@ DECODER_FUNCTION(DecodeStartOfPath) {
   return REPORT_ILLFORMED(state, "Invalid path start");
 }
 
+// We've finished with the method, so should be looking at a space followed by
+// the request target.
+DECODER_FUNCTION(DecodeAfterMethod) {
+  DECODER_ENTRY_CHECKS(state);
+  const char c = state.input_buffer.at(0);
+  if (c == ' ') {
+    state.input_buffer.remove_prefix(1);
+    state.SetDecodeFunction(DecodeStartOfPath);
+    return EDecodeBufferStatus::kDecodingInProgress;
+  }
+  return REPORT_ILLFORMED(state, "Invalid HTTP method end");
+}
+
 DECODER_FUNCTION(DecodeHttpMethodError) {
   return REPORT_ILLFORMED(state, "HTTP Method too long");
 }
@@ -555,38 +560,22 @@ DECODER_FUNCTION(DecodeHttpMethodError) {
 DECODER_FUNCTION(DecodeHttpMethod) {
   DECODER_ENTRY_CHECKS(state);
 
-  // https://www.iana.org/assignments/http-methods/http-methods.xhtml contains
-  // the registered HTTP methods. All names are uppercase ASCII, and so far
-  // those are all we're likely to care about, so those are all that I'm
-  // attempting to support here. Note that "*" is also reserved, though in
-  // that case to prevent it being used as a method name; for more info, see:
-  // https://www.rfc-editor.org/rfc/rfc9110.html#name-method-registration
-
-  if (isupper(state.input_buffer.at(0))) {
-    // Starts with uppercase, so we know that the method could be present.
-
-    for (StrSize pos = 1; pos < state.input_buffer.size(); ++pos) {
-      const char c = state.input_buffer.at(pos);
-      if (isupper(c)) {
-        continue;
-      } else if (c == ' ') {
-        // Reached the expected end of the method.
-        auto text = state.input_buffer.prefix(pos);
-        state.input_buffer.remove_prefix(pos + 1);
-        state.SetDecodeFunction(DecodeStartOfPath);
-        state.OnCompleteText(EToken::kHttpMethod, text);
-        return EDecodeBufferStatus::kDecodingInProgress;
-      } else {
-        return REPORT_ILLFORMED(state, "Invalid HTTP method end");
-      }
-    }
-
+  const auto beyond = FindFirstNotOf(state.input_buffer, IsMethodChar);
+  if (0 < beyond && beyond < StringView::kMaxSize) {
+    // We've got a non-method segment.
+    const auto method = state.input_buffer.prefix(beyond);
+    state.input_buffer.remove_prefix(beyond);
+    state.SetDecodeFunction(DecodeAfterMethod);
+    state.OnCompleteText(EToken::kHttpMethod, method);
+    return EDecodeBufferStatus::kDecodingInProgress;
+  } else if (beyond == 0) {
+    return REPORT_ILLFORMED(state, "Invalid HTTP method start");
+  } else {
     // Haven't found the end of the method. Caller will need to figure out if
     // more input is possible.
     state.partial_decode_function_if_full = DecodeHttpMethodError;
     return EDecodeBufferStatus::kNeedMoreInput;
   }
-  return REPORT_ILLFORMED(state, "Invalid HTTP method start");
 }
 
 DECODER_FUNCTION(DecodeInternalError) {
@@ -615,14 +604,15 @@ egrep "^DECODER_FUNCTION\(\w+\) \{" mcunet/src/http1/request_decoder.cc | \
 
   */
 
+  OUTPUT_METHOD_NAME(DecodeAfterMethod);
   OUTPUT_METHOD_NAME(DecodeAfterPath);
   OUTPUT_METHOD_NAME(DecodeAfterSegment);
-  OUTPUT_METHOD_NAME(DecodeInternalError);
   OUTPUT_METHOD_NAME(DecodeHeaderLines);
   OUTPUT_METHOD_NAME(DecodeHeaderValue);
   OUTPUT_METHOD_NAME(DecodeHttpMethod);
   OUTPUT_METHOD_NAME(DecodeHttpMethodError);
   OUTPUT_METHOD_NAME(DecodeHttpVersion);
+  OUTPUT_METHOD_NAME(DecodeInternalError);
   OUTPUT_METHOD_NAME(DecodePartialHeaderName);
   OUTPUT_METHOD_NAME(DecodePartialHeaderNameStart);
   OUTPUT_METHOD_NAME(DecodePartialHeaderValue);
@@ -631,7 +621,6 @@ egrep "^DECODER_FUNCTION\(\w+\) \{" mcunet/src/http1/request_decoder.cc | \
   OUTPUT_METHOD_NAME(DecodePartialPathSegmentStart);
   OUTPUT_METHOD_NAME(DecodePartialQueryString);
   OUTPUT_METHOD_NAME(DecodePathSegment);
-  OUTPUT_METHOD_NAME(DecodeQueryStringStart);
   OUTPUT_METHOD_NAME(DecodeStartOfPath);
   OUTPUT_METHOD_NAME(MatchAfterRequestTarget);
   OUTPUT_METHOD_NAME(MatchHeaderNameValueSeparator);

@@ -21,27 +21,22 @@ namespace http1 {
 // For decoding events that don't require more detail than just the type of
 // event.
 enum class EEvent : uint_fast8_t {
-  // Starting to decode the path portion of the URL; haven't consumed a single
-  // byte yet.
+  // Matched the / at the start of the path in the request target.
   kPathStart,
 
-  // A forward slash in the path, including both a leading or trailing slash.
+  // A forward slash in the path, including a trailing slash at the end of the
+  // path.
   kPathSeparator,
 
-  // Have reached the end of the path, which is also the end of the URL
-  // because there is no query string (i.e. saw a space after the path).
-  kPathAndUrlEnd,
-
-  // Have decoded a ?, indicating the end of the path and the start of the
-  // query string in the URL.
-  kPathEndQueryStart,
-
-  // Have reached the end of the query string, which is also the end of the
-  // URL.
-  kQueryAndUrlEnd,
+  // Have reached the end of the path. There may be a query after the path, in
+  // which case EPartialToken::kQueryString events will be reported.
+  kPathEnd,
 
   // Decoded HTTP/1.1 at the end of the request's start line.
   kHttpVersion1_1,
+
+  // All done decoding the headers.
+  kHeadersEnd,
 };
 
 // For decoding events where we've have the whole string that makes up the named
@@ -64,7 +59,9 @@ enum class EToken : uint_fast8_t {
 };
 
 // For decoding events where we've got some, and possibly all, of the value of
-// the named entity in a StringView.
+// the named entity in a StringView. This is restricted to the cases where the
+// length of the token is greater than the maximum size of the input buffer
+// passed to RequestDecoder::DecodeBuffer.
 enum class EPartialToken : uint_fast8_t {
   // A path segment is the the portion between two forward slashes in the
   // path.
@@ -72,7 +69,8 @@ enum class EPartialToken : uint_fast8_t {
 
   // The query string, i.e. following a request's path. We don't try to force
   // the buffering of the entire query string, so we don't have a corresponding
-  // EToken enumerator.
+  // EToken enumerator. We make this choice because the query string requires a
+  // further decoder.
   kQueryString,
 
   // The name of a header (e.g. "Content-Type");
@@ -82,18 +80,21 @@ enum class EPartialToken : uint_fast8_t {
   kHeaderValue,
 };
 
-enum class EPartialTokenPosition : uint_fast8_t { kFirst, kMiddle, kLast };
+enum class EPartialTokenPosition : uint_fast8_t {
+  // Matched the start of an EPartialToken; e.g. saw a '?' at the end of a
+  // path, where that '?' is not included in the query string passed to the
+  // listener.
+  kFirst,
 
-class RequestDecoderConstants {
- public:
-  RequestDecoderConstants();
-  virtual ~RequestDecoderConstants();
+  // Matched some text after the start of the token, and before the end. So far
+  // this means that an OnPartialText notification with position kMiddle will
+  // always have some text.
+  kMiddle,
 
-  // TODO(jamessynge): Define and document methods.
-
- protected:
- private:
-  // TODO(jamessynge): Define and document private methods and fields.
+  // Matched the end of an EPartialToken; e.g. saw a '?' at the end of a
+  // path, where that '?' is not included in the query string passed to the
+  // listener.
+  kLast
 };
 
 enum class EDecodeBufferStatus : uint_fast8_t {

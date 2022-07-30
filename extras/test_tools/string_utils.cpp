@@ -81,5 +81,49 @@ std::string AllCharsExcept(int (*excluding)(int c)) {
   return result;
 }
 
+std::vector<std::string> AllRegisteredMethodNames() {
+  return {
+      "ACL",
+      "BASELINE-CONTROL",
+      "BIND",
+      "CHECKIN",
+      "CHECKOUT",
+      "CONNECT",
+      "COPY",
+      "DELETE",
+      "GET",
+      "HEAD",
+      "LABEL",
+      "LINK",
+      "LOCK",
+      "MERGE",
+      "MKACTIVITY",
+      "MKCALENDAR",
+      "MKCOL",
+      "MKREDIRECTREF",
+      "MKWORKSPACE",
+      "MOVE",
+      "OPTIONS",
+      "ORDERPATCH",
+      "PATCH",
+      "POST",
+      "PRI",
+      "PROPFIND",
+      "PROPPATCH",
+      "PUT",
+      "REBIND",
+      "REPORT",
+      "SEARCH",
+      "TRACE",
+      "UNBIND",
+      "UNCHECKOUT",
+      "UNLINK",
+      "UNLOCK",
+      "UPDATE",
+      "UPDATEREDIRECTREF",
+      "VERSION-CONTROL",
+  };
+}
+
 }  // namespace test
 }  // namespace mcunet
