@@ -10,6 +10,17 @@ namespace http1 {
 
 using mcucore::StringView;
 
+// Using this macro to ensure that all declarations of functions passed to
+// SetDecoderFunction are the same, and to make it easier to find all of those
+// declarations when updating the PrintValue function for decoder functions.
+#define DECODER_FUNCTION(function_name) \
+  EDecodeBufferStatus function_name(ActiveDecodingState& state)
+
+namespace {
+// Forward decl to make life easier.
+DECODER_FUNCTION(DecodeInternalError);
+}  // namespace
+
 namespace mcunet_http1_internal {
 
 bool IsOptionalWhitespace(const char c) { return c == ' ' || c == '\t'; }
@@ -121,31 +132,98 @@ using StrSize = StringView::size_type;
 // from trying to provide good performance on a low-memory system, where we
 // might have multiple HTTP (TCP) connections active at once, but are operating
 // in a single threaded fashion, so only one call to DecodeBuffer can be active
-// at a time. So we can transiently use some stack space for ActiveDecodingState
+// at a time. We can transiently use some stack space for ActiveDecodingState
 // while decoding, but don't need any space for it after the call is complete.
 // TODO(jamessynge): Are there any additional fields that we should add?
 struct ActiveDecodingState {
+  ActiveDecodingState(const StringView& full_decoder_input,
+                      RequestDecoderImpl& impl)
+      : input_buffer(full_decoder_input),
+        impl(impl),
+        full_decoder_input(full_decoder_input),
+        base_data(*this) {}
+
+  void SetDecodeFunction(DecodeFunction decode_function) {
+    MCU_VLOG(2) << MCU_PSD("Set") << MCU_NAME_VAL(decode_function);
+    impl.decode_function_ = decode_function;
+  }
+
+  // Event delivery methods. These allow us to log centrally, and to deal with
+  // an unset listener centrally.
+
+  void OnEvent(EEvent event) {
+    MCU_VLOG(3) << "==>> OnEvent " << event;
+    if (impl.listener_ != nullptr) {
+      on_event_data.event = event;
+      impl.listener_->OnEvent(on_event_data);
+    }
+  }
+
+  void OnCompleteText(EToken token, StringView text) {
+    MCU_VLOG(3) << "==>> OnCompleteText " << token << MCU_PSD(", ")
+                << mcucore::HexEscaped(text);
+    if (impl.listener_ != nullptr) {
+      on_complete_text_data.token = token;
+      on_complete_text_data.text = text;
+      impl.listener_->OnCompleteText(on_complete_text_data);
+    }
+  }
+
+  void OnPartialText(EPartialToken token, EPartialTokenPosition position,
+                     StringView text) {
+    MCU_VLOG(3) << "==>> OnPartialText " << token << MCU_PSD(", ") << position
+                << MCU_PSD(", ") << mcucore::HexEscaped(text);
+    if (impl.listener_ != nullptr) {
+      on_partial_text_data.token = token;
+      on_partial_text_data.position = position;
+      on_partial_text_data.text = text;
+      impl.listener_->OnPartialText(on_partial_text_data);
+    }
+  }
+
+  void OnEnd() {
+    MCU_VLOG(3) << "==>> OnEnd";
+    SetDecodeFunction(DecodeInternalError);
+    if (impl.listener_ != nullptr) {
+      impl.listener_->OnEnd();
+    }
+  }
+
+  EDecodeBufferStatus OnIllFormed(mcucore::ProgmemString message) {
+    MCU_VLOG(3) << "==>> OnIllFormed " << message;
+    SetDecodeFunction(DecodeInternalError);
+    if (impl.listener_ != nullptr) {
+      on_error_data.message = message;
+      on_error_data.undecoded_input = input_buffer;
+      impl.listener_->OnError(on_error_data);
+    }
+    return EDecodeBufferStatus::kIllFormed;
+  }
+
   StringView input_buffer;
   RequestDecoderImpl& impl;
   DecodeFunction partial_decode_function_if_full{nullptr};
+  const StringView full_decoder_input;
+
+  union {
+    BaseListenerCallbackData base_data;
+    OnEventData on_event_data;
+    OnCompleteTextData on_complete_text_data;
+    OnPartialTextData on_partial_text_data;
+    OnErrorData on_error_data;
+  };
 };
 
 namespace {
 
 using CharMatchFunction = bool (*)(char c);
 
-// Using this macro to ensure that all declarations of functions passed to
-// SetDecoderFunction are the same, and to make it easier to find all of those
-// declarations when updating the PrintValue function for decoder functions.
-#define DECODER_FUNCTION(function_name) \
-  EDecodeBufferStatus function_name(ActiveDecodingState& state)
-
 #define DECODER_ENTRY_CHECKS(state)            \
   MCU_DCHECK_LT(0, state.input_buffer.size()); \
   MCU_DCHECK_LT(state.input_buffer.size(), StringView::kMaxSize)
 
 #define REPORT_ILLFORMED(state, msg_literal) \
-  state.impl.OnIllFormed(MCU_PSD(msg_literal))
+  state.OnIllFormed(MCU_PSD(msg_literal))
 
 // We expect that the input buffer starts with the specified literal. If so,
 // skip it and call matched_function, else report the specified error.
@@ -159,7 +237,7 @@ EDecodeBufferStatus SkipLiteralAndDispatch(
     // We've only got part of the literal.
     return EDecodeBufferStatus::kNeedMoreInput;
   } else {
-    return state.impl.OnIllFormed(error_message);
+    return state.OnIllFormed(error_message);
   }
 }
 
@@ -177,17 +255,17 @@ EDecodeBufferStatus DecodePartialTokenHelper(ActiveDecodingState& state,
     // The entirety of the buffer is part of the same, oversize token.
     const auto partial_token = state.input_buffer;
     state.input_buffer.remove_prefix(partial_token.size());
-    state.impl.OnPartialText(token_type, EPartialTokenPosition::kMiddle,
-                             partial_token);
+    state.OnPartialText(token_type, EPartialTokenPosition::kMiddle,
+                        partial_token);
   } else {
     // The first character beyond the current segment is in this buffer. It is
     // possible that it is the first character, but we don't have a
     // specialization for that case on the assumption that is relatively rare.
     const auto partial_token = state.input_buffer.prefix(beyond);
     state.input_buffer.remove_prefix(beyond);
-    state.impl.SetDecodeFunction(next_decoder);
-    state.impl.OnPartialText(token_type, EPartialTokenPosition::kLast,
-                             partial_token);
+    state.SetDecodeFunction(next_decoder);
+    state.OnPartialText(token_type, EPartialTokenPosition::kLast,
+                        partial_token);
   }
   return EDecodeBufferStatus::kDecodingInProgress;
 }
@@ -206,9 +284,8 @@ EDecodeBufferStatus DecodePartialTokenStartHelper(
   // The entirety of the buffer is part of the same, oversize token.
   const auto partial_token = state.input_buffer;
   state.input_buffer.remove_prefix(partial_token.size());
-  state.impl.SetDecodeFunction(remainder_decoder);
-  state.impl.OnPartialText(token_type, EPartialTokenPosition::kFirst,
-                           partial_token);
+  state.SetDecodeFunction(remainder_decoder);
+  state.OnPartialText(token_type, EPartialTokenPosition::kFirst, partial_token);
   return EDecodeBufferStatus::kDecodingInProgress;
 }
 
@@ -221,7 +298,7 @@ DECODER_FUNCTION(DecodeHeaderLines);
 DECODER_FUNCTION(DecodePathSegment);
 
 EDecodeBufferStatus MatchedEndOfHeaderLine(ActiveDecodingState& state) {
-  state.impl.SetDecodeFunction(DecodeHeaderLines);
+  state.SetDecodeFunction(DecodeHeaderLines);
   return EDecodeBufferStatus::kDecodingInProgress;
 }
 
@@ -252,8 +329,8 @@ DECODER_FUNCTION(DecodeHeaderValue) {
     auto value = state.input_buffer.prefix(beyond);
     state.input_buffer.remove_prefix(beyond);
     TrimTrailingOptionalWhitespace(value);
-    state.impl.SetDecodeFunction(MatchHeaderValueEnd);
-    state.impl.OnCompleteText(EToken::kHeaderValue, value);
+    state.SetDecodeFunction(MatchHeaderValueEnd);
+    state.OnCompleteText(EToken::kHeaderValue, value);
     return EDecodeBufferStatus::kDecodingInProgress;
   } else if (beyond != 0) {
     // We didn't find the end of the name, so we need more input.
@@ -271,7 +348,7 @@ DECODER_FUNCTION(SkipOptionalWhitespace) {
   // will return true if it has found the end of of such whitespace.
   if (SkipLeadingOptionalWhitespace(state.input_buffer)) {
     // Reached the end of the whitespace, if there was any.
-    state.impl.SetDecodeFunction(DecodeHeaderValue);
+    state.SetDecodeFunction(DecodeHeaderValue);
   }
   return EDecodeBufferStatus::kDecodingInProgress;
 }
@@ -281,7 +358,7 @@ DECODER_FUNCTION(MatchHeaderNameValueSeparator) {
   if (state.input_buffer.starts_with(':')) {
     // Found the ':' separating the name from value.
     state.input_buffer.remove_prefix(1);
-    state.impl.SetDecodeFunction(SkipOptionalWhitespace);
+    state.SetDecodeFunction(SkipOptionalWhitespace);
     return EDecodeBufferStatus::kDecodingInProgress;
   }
   return REPORT_ILLFORMED(state, "Expected colon after name");
@@ -300,7 +377,7 @@ DECODER_FUNCTION(DecodePartialHeaderNameStart) {
 }
 
 EDecodeBufferStatus MatchedEndOfHeaderLines(ActiveDecodingState& state) {
-  state.impl.OnEnd();
+  state.OnEnd();
   return EDecodeBufferStatus::kComplete;
 }
 
@@ -312,8 +389,8 @@ DECODER_FUNCTION(DecodeHeaderLines) {
     // We've got a non-empty field name.
     const auto name = state.input_buffer.prefix(beyond);
     state.input_buffer.remove_prefix(beyond);
-    state.impl.SetDecodeFunction(MatchHeaderNameValueSeparator);
-    state.impl.OnCompleteText(EToken::kHeaderName, name);
+    state.SetDecodeFunction(MatchHeaderNameValueSeparator);
+    state.OnCompleteText(EToken::kHeaderName, name);
     return EDecodeBufferStatus::kDecodingInProgress;
   } else if (beyond != 0) {
     // We didn't find the end of the name, so we need more input.
@@ -327,8 +404,8 @@ DECODER_FUNCTION(DecodeHeaderLines) {
 }
 
 EDecodeBufferStatus MatchedHttpVersion1_1(ActiveDecodingState& state) {
-  state.impl.SetDecodeFunction(DecodeHeaderLines);
-  state.impl.OnEvent(EEvent::kHttpVersion1_1);
+  state.SetDecodeFunction(DecodeHeaderLines);
+  state.OnEvent(EEvent::kHttpVersion1_1);
   return EDecodeBufferStatus::kDecodingInProgress;
 }
 
@@ -347,7 +424,7 @@ DECODER_FUNCTION(MatchAfterRequestTarget) {
   if (c == ' ') {
     // End of the path, and there is no query.
     state.input_buffer.remove_prefix(1);
-    state.impl.SetDecodeFunction(DecodeHttpVersion);
+    state.SetDecodeFunction(DecodeHttpVersion);
     return EDecodeBufferStatus::kDecodingInProgress;
   }
   MCU_DCHECK(!IsPChar(c)) << c;
@@ -372,8 +449,8 @@ DECODER_FUNCTION(DecodeQueryStringStart) {
   MCU_VLOG_VAR(1, beyond);
   if (beyond == 0) {
     // The query is empty, which is wierd but valid.
-    state.impl.SetDecodeFunction(MatchAfterRequestTarget);
-    state.impl.OnEvent(EEvent::kQueryAndUrlEnd);
+    state.SetDecodeFunction(MatchAfterRequestTarget);
+    state.OnEvent(EEvent::kQueryAndUrlEnd);
     return EDecodeBufferStatus::kDecodingInProgress;
   }
   if (beyond == StringView::kMaxSize) {
@@ -381,9 +458,9 @@ DECODER_FUNCTION(DecodeQueryStringStart) {
   }
   const auto partial_query_string = state.input_buffer.prefix(beyond);
   state.input_buffer.remove_prefix(beyond);
-  state.impl.SetDecodeFunction(DecodePartialQueryString);
-  state.impl.OnPartialText(EPartialToken::kQueryString,
-                           EPartialTokenPosition::kFirst, partial_query_string);
+  state.SetDecodeFunction(DecodePartialQueryString);
+  state.OnPartialText(EPartialToken::kQueryString,
+                      EPartialTokenPosition::kFirst, partial_query_string);
   return EDecodeBufferStatus::kDecodingInProgress;
 }
 
@@ -396,13 +473,13 @@ DECODER_FUNCTION(DecodeAfterPath) {
   if (c == '?') {
     // End of the path, start of the query.
     state.input_buffer.remove_prefix(1);
-    state.impl.SetDecodeFunction(DecodeQueryStringStart);
-    state.impl.OnEvent(EEvent::kPathEndQueryStart);
+    state.SetDecodeFunction(DecodeQueryStringStart);
+    state.OnEvent(EEvent::kPathEndQueryStart);
     return EDecodeBufferStatus::kDecodingInProgress;
   }
   // Appears to be the end of the request target (path and optional query).
-  state.impl.SetDecodeFunction(MatchAfterRequestTarget);
-  state.impl.OnEvent(EEvent::kPathAndUrlEnd);
+  state.SetDecodeFunction(MatchAfterRequestTarget);
+  state.OnEvent(EEvent::kPathAndUrlEnd);
   return EDecodeBufferStatus::kDecodingInProgress;
 }
 
@@ -414,8 +491,8 @@ DECODER_FUNCTION(DecodeAfterSegment) {
   if (c == '/') {
     // Maybe there is another segment in the path.
     state.input_buffer.remove_prefix(1);
-    state.impl.SetDecodeFunction(DecodePathSegment);
-    state.impl.OnEvent(EEvent::kPathSeparator);
+    state.SetDecodeFunction(DecodePathSegment);
+    state.OnEvent(EEvent::kPathSeparator);
     return EDecodeBufferStatus::kDecodingInProgress;
   } else {
     return DecodeAfterPath(state);
@@ -445,8 +522,8 @@ DECODER_FUNCTION(DecodePathSegment) {
     // We've got a non-empty segment.
     const auto segment = state.input_buffer.prefix(beyond);
     state.input_buffer.remove_prefix(beyond);
-    state.impl.SetDecodeFunction(DecodeAfterSegment);
-    state.impl.OnCompleteText(EToken::kPathSegment, segment);
+    state.SetDecodeFunction(DecodeAfterSegment);
+    state.OnCompleteText(EToken::kPathSegment, segment);
     return EDecodeBufferStatus::kDecodingInProgress;
   } else if (beyond == 0) {
     return DecodeAfterPath(state);
@@ -463,8 +540,8 @@ DECODER_FUNCTION(DecodeStartOfPath) {
     // We're decoding an origin-form request-target.
     // https://datatracker.ietf.org/doc/html/rfc7230#section-5.3.1
     state.input_buffer.remove_prefix(1);
-    state.impl.SetDecodeFunction(DecodePathSegment);
-    state.impl.OnEvent(EEvent::kPathStart);
+    state.SetDecodeFunction(DecodePathSegment);
+    state.OnEvent(EEvent::kPathStart);
     return EDecodeBufferStatus::kDecodingInProgress;
   }
   return REPORT_ILLFORMED(state, "Invalid path start");
@@ -496,8 +573,8 @@ DECODER_FUNCTION(DecodeHttpMethod) {
         // Reached the expected end of the method.
         auto text = state.input_buffer.prefix(pos);
         state.input_buffer.remove_prefix(pos + 1);
-        state.impl.SetDecodeFunction(DecodeStartOfPath);
-        state.impl.OnCompleteText(EToken::kHttpMethod, text);
+        state.SetDecodeFunction(DecodeStartOfPath);
+        state.OnCompleteText(EToken::kHttpMethod, text);
         return EDecodeBufferStatus::kDecodingInProgress;
       } else {
         return REPORT_ILLFORMED(state, "Invalid HTTP method end");
@@ -512,7 +589,7 @@ DECODER_FUNCTION(DecodeHttpMethod) {
   return REPORT_ILLFORMED(state, "Invalid HTTP method start");
 }
 
-DECODER_FUNCTION(DecodeError) {
+DECODER_FUNCTION(DecodeInternalError) {
 #ifdef MCU_REQUEST_DECODER_EXTRA_CHECKS
   MCU_VLOG(2) << MCU_PSD("RequestDecoder is not ready for decoding");
 #endif  // MCU_REQUEST_DECODER_EXTRA_CHECKS
@@ -540,7 +617,7 @@ egrep "^DECODER_FUNCTION\(\w+\) \{" mcunet/src/http1/request_decoder.cc | \
 
   OUTPUT_METHOD_NAME(DecodeAfterPath);
   OUTPUT_METHOD_NAME(DecodeAfterSegment);
-  OUTPUT_METHOD_NAME(DecodeError);
+  OUTPUT_METHOD_NAME(DecodeInternalError);
   OUTPUT_METHOD_NAME(DecodeHeaderLines);
   OUTPUT_METHOD_NAME(DecodeHeaderValue);
   OUTPUT_METHOD_NAME(DecodeHttpMethod);
@@ -568,7 +645,9 @@ egrep "^DECODER_FUNCTION\(\w+\) \{" mcunet/src/http1/request_decoder.cc | \
   return 0;                                               // COV_NF_LINE
 }
 
-RequestDecoderImpl::RequestDecoderImpl() { decode_function_ = DecodeError; }
+RequestDecoderImpl::RequestDecoderImpl() {
+  decode_function_ = DecodeInternalError;
+}
 
 void RequestDecoderImpl::Reset() {
   decode_function_ = DecodeHttpMethod;
@@ -580,11 +659,6 @@ void RequestDecoderImpl::SetListener(RequestDecoderListener& listener) {
 }
 
 void RequestDecoderImpl::ClearListener() { listener_ = nullptr; }
-
-void RequestDecoderImpl::SetDecodeFunction(DecodeFunction decode_function) {
-  MCU_VLOG(2) << MCU_PSD("Set") << MCU_NAME_VAL(decode_function);
-  decode_function_ = decode_function;
-}
 
 EDecodeBufferStatus RequestDecoderImpl::DecodeBuffer(
     StringView& buffer, const bool buffer_is_full) {
@@ -598,7 +672,7 @@ EDecodeBufferStatus RequestDecoderImpl::DecodeBuffer(
 
   const auto start_size = buffer.size();
 
-  ActiveDecodingState active_state{.input_buffer = buffer, .impl = *this};
+  ActiveDecodingState active_state(buffer, *this);
   auto status = EDecodeBufferStatus::kNeedMoreInput;
   while (!active_state.input_buffer.empty()) {
     const auto buffer_size_before_decode = active_state.input_buffer.size();
@@ -664,51 +738,6 @@ EDecodeBufferStatus RequestDecoderImpl::DecodeBuffer(
   MCU_VLOG(1) << MCU_PSD("EXIT DecodeBuffer after consuming ")
               << (start_size - buffer.size()) << MCU_PSD(" characters");
   return status;
-}
-
-// Event delivery methods. These allow us to log centrally, and to deal with
-// an unset listener centrally.
-void RequestDecoderImpl::OnEvent(EEvent event) {
-  MCU_VLOG(3) << "==>> OnEvent " << event;
-  if (listener_ != nullptr) {
-    listener_->OnEvent(event);
-  }
-}
-
-void RequestDecoderImpl::OnCompleteText(EToken token, StringView text) {
-  MCU_VLOG(3) << "==>> OnCompleteText " << token << MCU_PSD(", ")
-              << mcucore::HexEscaped(text);
-  if (listener_ != nullptr) {
-    listener_->OnCompleteText(token, text);
-  }
-}
-
-void RequestDecoderImpl::OnPartialText(EPartialToken token,
-                                       EPartialTokenPosition position,
-                                       StringView text) {
-  MCU_VLOG(3) << "==>> OnPartialText " << token << MCU_PSD(", ") << position
-              << MCU_PSD(", ") << mcucore::HexEscaped(text);
-  if (listener_ != nullptr) {
-    listener_->OnPartialText(token, position, text);
-  }
-}
-
-void RequestDecoderImpl::OnEnd() {
-  MCU_VLOG(3) << "==>> OnEnd";
-  SetDecodeFunction(DecodeError);
-  if (listener_ != nullptr) {
-    listener_->OnEnd();
-  }
-}
-
-EDecodeBufferStatus RequestDecoderImpl::OnIllFormed(
-    mcucore::ProgmemString msg) {
-  MCU_VLOG(3) << "==>> OnIllFormed " << msg;
-  SetDecodeFunction(DecodeError);
-  if (listener_ != nullptr) {
-    listener_->OnError(msg);
-  }
-  return EDecodeBufferStatus::kIllFormed;
 }
 
 }  // namespace http1

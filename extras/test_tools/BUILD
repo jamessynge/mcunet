@@ -10,7 +10,6 @@ package(
 
 cc_library(
     name = "fake_platform_network",
-    testonly = True,
     hdrs = ["fake_platform_network.h"],
     deps = ["//mcunet/src:platform_network_interface"],
 )
@@ -27,7 +26,6 @@ cc_library(
 
 cc_library(
     name = "mock_client",
-    testonly = True,
     hdrs = ["mock_client.h"],
     deps = [
         "//googletest:gunit_headers",
@@ -38,7 +36,6 @@ cc_library(
 
 cc_library(
     name = "mock_ethernet_client",
-    testonly = True,
     hdrs = ["mock_ethernet_client.h"],
     deps = [
         "//googletest:gunit_headers",
@@ -49,7 +46,6 @@ cc_library(
 
 cc_library(
     name = "mock_ethernet_udp",
-    testonly = True,
     hdrs = ["mock_ethernet_udp.h"],
     deps = [
         "//googletest:gunit_headers",
@@ -60,7 +56,6 @@ cc_library(
 
 cc_library(
     name = "mock_platform_network",
-    testonly = True,
     hdrs = ["mock_platform_network.h"],
     deps = [
         "//googletest:gunit_headers",
@@ -71,16 +66,19 @@ cc_library(
 
 cc_library(
     name = "mock_request_decoder_listener",
+    srcs = ["mock_request_decoder_listener.cc"],
     hdrs = ["mock_request_decoder_listener.h"],
     deps = [
         "//googletest:gunit_headers",
+        "//mcucore/extras/test_tools:progmem_string_utils",
+        "//mcucore/extras/test_tools:string_view_utils",
         "//mcunet/src/http1:request_decoder",
+        "//mcunet/src/http1:request_decoder_constants",
     ],
 )
 
 cc_library(
     name = "mock_socket_listener",
-    testonly = True,
     hdrs = ["mock_socket_listener.h"],
     deps = [
         "//googletest:gunit_headers",

@@ -67,21 +67,61 @@
 #include "http1/request_decoder_constants.h"
 
 namespace mcunet {
-// I don't normally want to have many nested namespaces, but the decoder has a
-// helper class and several enum definitions, with names that I'd like to keep
-// short, and yet not readily conflict with other similar enums, so I've chosen
-// to put them into a nested namespace.
+// I don't normally want to have many nested namespaces, but the decoder has
+// helper classes and several enum definitions, with names that I'd like to keep
+// relatively short, and yet not readily conflict with other similar enums, so
+// I've chosen to use nested namespaces for the decoder and helpers.
 namespace http1 {
+
+struct ActiveDecodingState;
+
+// The decoder will use an instance of one of the following classes to provide
+// data to the listener at key points in the decoding process.
+
+struct BaseListenerCallbackData {
+  explicit BaseListenerCallbackData(const ActiveDecodingState& state)
+      : state(state) {}
+
+  // Puts the decoder into an error state, with the effect that it stops
+  // decoding and returns kInternalError.
+  void StopDecoding();
+
+  // Returns a view of the data passed into RequestDecoder::DecodeBuffer.
+  mcucore::StringView GetFullDecoderInput() const;
+
+ private:
+  const ActiveDecodingState& state;
+};
+
+struct OnEventData : BaseListenerCallbackData {
+  EEvent event;
+};
+
+struct OnCompleteTextData : BaseListenerCallbackData {
+  EToken token;
+  mcucore::StringView text;
+};
+
+struct OnPartialTextData : BaseListenerCallbackData {
+  EPartialToken token;
+  EPartialTokenPosition position;
+  mcucore::StringView text;
+};
+
+struct OnErrorData : BaseListenerCallbackData {
+  mcucore::ProgmemString message;
+  mcucore::StringView undecoded_input;
+};
 
 // Note that percent encoding is not been removed from text before it is passed
 // to the listener.
 struct RequestDecoderListener {
   virtual ~RequestDecoderListener() {}
-  virtual void OnEvent(EEvent event) = 0;
+  virtual void OnEvent(const OnEventData& data) = 0;
 
   // Notifies the listener that the complete value of the specified token is in
   // `text`.
-  virtual void OnCompleteText(EToken token, mcucore::StringView text) = 0;
+  virtual void OnCompleteText(const OnCompleteTextData& data) = 0;
 
   // TODO(jamessynge): Consider whether to add arg(s) to OnPartialText to
   // indicate if it is the first call or the last call of the sequence of calls
@@ -92,9 +132,7 @@ struct RequestDecoderListener {
   // Notifies the listener that *some* of the value of the specified token is in
   // `text`. This should only happen if the entity being decoded it longer than
   // the maximum size that the caller can provide in a single StringView.
-  virtual void OnPartialText(EPartialToken token,
-                             EPartialTokenPosition position,
-                             mcucore::StringView text) = 0;
+  virtual void OnPartialText(const OnPartialTextData& data) = 0;
 
   // All done.
   virtual void OnEnd() = 0;
@@ -102,16 +140,17 @@ struct RequestDecoderListener {
   // TODO(jamessynge): Consider changing msg type to ArrayView<ProgmemString> or
   // ArrayView<AnyPrintable>. This assumes that the listener has the ability to
   // emit or store the error message based on the msg.
-  virtual void OnError(mcucore::ProgmemString msg) = 0;
+  virtual void OnError(const OnErrorData& data) = 0;
 };
-
-struct ActiveDecodingState;
 
 class RequestDecoderImpl {
  public:
   using DecodeFunction = EDecodeBufferStatus (*)(ActiveDecodingState& state);
 
   RequestDecoderImpl();
+
+  // RequestDecoderListener* listener() const { return listener_; }
+  // void SetDecodeFunction(DecodeFunction decode_function);
 
   // Reset the decoder, ready to decode a new request. Among other things, this
   // clears the listener, so SetListener must be called if decoding events are
@@ -133,17 +172,9 @@ class RequestDecoderImpl {
   EDecodeBufferStatus DecodeBuffer(mcucore::StringView& buffer,
                                    bool buffer_is_full);
 
-  // Event delivery methods. These allow us to log centrally, and to deal with
-  // an unset listener centrally.
-  void OnEvent(EEvent event);
-  void OnCompleteText(EToken token, mcucore::StringView text);
-  void OnPartialText(EPartialToken token, EPartialTokenPosition position,
-                     mcucore::StringView text);
-  void OnEnd();
-  EDecodeBufferStatus OnIllFormed(mcucore::ProgmemString msg);
-  void SetDecodeFunction(DecodeFunction decode_function);
-
  private:
+  friend class ActiveDecodingState;
+
   DecodeFunction decode_function_;
 
   // If nullptr, no events are delivered by the decoder, but decoding continues.
@@ -162,7 +193,8 @@ class RequestDecoder : /*private*/ RequestDecoderImpl {
   using RequestDecoderImpl::SetListener;
 };
 
-// Using namespace mcunet_http1_internal for unit tests.
+// Placing these functions into namespace mcunet_http1_internal so they can be
+// called by unit tests. They are not a part of the public API of the decoder.
 namespace mcunet_http1_internal {
 
 // Match characters allowed in a path segment.
