@@ -3,12 +3,16 @@
 
 // mcunet::http1::RequestDecoder is an HTTP/1.1 Request Message (but not body)
 // decoder for tiny web servers, i.e. those intended to run on a very low-memory
-// system, such as on a microcontroller. The aim is to be able to decode most
-// HTTP/1.1 requests, though with the limitation that it can't interpret
-// 'tokens' that are longer than the maximum size buffer that the system can
-// support (i.e. if the name of a header is longer than that limit, the listener
-// will be informed of the issue, and the header name and value will be skipped
-// over).
+// system, such as on a microcontroller. HTTP/1.1 is specified in RFC 9112
+// (June, 2022), which obsoletes RFC 7230 (June, 2014).
+//
+//    https://www.rfc-editor.org/rfc/rfc9112.html
+//
+// The aim is to be able to decode most HTTP/1.1 requests, though with the
+// limitation that it can't interpret 'tokens' that are longer than the maximum
+// size buffer that the system can support (i.e. if the name of a header is
+// longer than that limit, the listener will be informed of the issue, and the
+// header name and value will be skipped over).
 //
 // This originated as RequestDecoder in TinyAlpacaServer, which was targeted at
 // a very specific set of URL paths and header names.

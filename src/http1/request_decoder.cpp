@@ -40,18 +40,21 @@ bool IsOptionalWhitespace(const char c) { return c == ' ' || c == '\t'; }
 bool IsMethodChar(const char c) { return isUpperCase(c) || c == '-'; }
 
 // Match characters allowed in a path segment.
-MCU_CONSTEXPR_VAR StringView kExtraPChars("-._~!$&'()*+,;=%");
 bool IsPChar(const char c) {
-  return isAlphaNumeric(c) || kExtraPChars.contains(c);
+  // The MCU_PSV string is in ASCII order.
+  return isAlphaNumeric(c) || MCU_PSV("!$%&'()*+,-.;=_~").contains(c);
 }
 
 // Match characters allowed in a query string.
-bool IsQueryChar(const char c) { return IsPChar(c) || c == '/' || c == '?'; }
+bool IsQueryChar(const char c) {
+  // The MCU_PSV string is in ASCII order.
+  return isAlphaNumeric(c) || MCU_PSV("!$%&'()*+,-./;=?_~").contains(c);
+}
 
 // Match characters allowed in a token (e.g. a header name).
-MCU_CONSTEXPR_VAR StringView kExtraTChars("!#$%&'*+-.^_`|~");
 bool IsTokenChar(const char c) {
-  return isAlphaNumeric(c) || kExtraTChars.contains(c);
+  // The MCU_PSV string is in ASCII order.
+  return isAlphaNumeric(c) || MCU_PSV("!#$%&'*+-.^_`|~").contains(c);
 }
 
 // Match characters allowed in a header value, per RFC7230, Section 3.2.6.
@@ -65,6 +68,11 @@ bool IsFieldContent(const char c) {
 
 // Return the index of the first character that doesn't match the test function.
 // Returns StringView::kMaxSize if not found.
+//
+// NOTE: Given that the IsXyzChar functions passed here consist primarily of a
+// call to a ctype.h function with a fallback to a check for presence in a
+// string, we could consider using memspn/memspn_P for the latter. This will
+// require some benchmarking to determine if it has value.
 StringView::size_type FindFirstNotOf(const StringView& view,
                                      bool (*test)(char)) {
   for (StringView::size_type pos = 0; pos < view.size(); ++pos) {
