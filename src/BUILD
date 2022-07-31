@@ -115,6 +115,9 @@ cc_library(
         ":server_socket",
         ":socket_listener",
         ":tcp_server_connection",
+        ":write_buffered_connection",
+        "//mcunet/src/http1:request_decoder",
+        "//mcunet/src/http1:request_decoder_constants",
     ],
 )
 
