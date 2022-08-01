@@ -223,6 +223,42 @@ TEST(RequestDecoderTest, DeviceApiGetRequest) {
   }
 }
 
+TEST(RequestDecoderTest, PercentEncodedPath) {
+  RequestDecoder decoder;
+  const char kRequestHeader[] =
+      "GET /%2F%Fa%c9%3f/ HTTP/1.1\r\n"
+      "\r\n";
+  const char kOptionalBody[] = "NotAHeaderName:NotAHeaderValue\r\n\r\n";
+
+  for (const auto body : {"", kOptionalBody}) {
+    for (auto partition : GenerateMultipleRequestPartitions(
+             absl::StrCat(kRequestHeader, body))) {
+      LOG(INFO) << "\n"
+                << "----------------------------------------"
+                << "----------------------------------------";
+      StrictMock<MockRequestDecoderListener> rdl;
+      InSequence s;
+      ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
+      ExpectEvent(rdl, EEvent::kPathStart);
+      ExpectPartialTextMatching(rdl, EPartialToken::kPathSegment,
+                                "\x2f\xfA\xC9?");
+      ExpectEvent(rdl, EEvent::kPathSeparator);
+      ExpectEvent(rdl, EEvent::kPathEnd);
+      ExpectEvent(rdl, EEvent::kHttpVersion1_1);
+      ExpectEvent(rdl, EEvent::kHeadersEnd);
+
+      const auto [status, buffer, remainder] =
+          DecodePartitionedRequest(decoder, &rdl, partition);
+      EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
+      EXPECT_THAT(body, StartsWith(buffer));
+      EXPECT_THAT(remainder, body);
+      if (TestHasFailed()) {
+        return;
+      }
+    }
+  }
+}
+
 TEST(RequestDecoderTest, RequestTargetEndsWithSlash) {
   RequestDecoder decoder;
   const char kRequestHeader[] =
