@@ -58,11 +58,11 @@ struct BaseListenerCallbackData {
       : state(state) {}
 
   // Change the listener.
-  void SetListener(RequestDecoderListener* listener);
+  void SetListener(RequestDecoderListener* listener) const;
 
   // Puts the decoder into an error state, with the effect that it stops
   // decoding and returns kInternalError.
-  void StopDecoding();
+  void StopDecoding() const;
 
   // Returns a view of the data passed into RequestDecoder::DecodeBuffer.
   mcucore::StringView GetFullDecoderInput() const;
@@ -75,14 +75,19 @@ struct OnEventData : BaseListenerCallbackData {
   EEvent event;
 };
 
-struct OnCompleteTextData : BaseListenerCallbackData {
-  EToken token;
-  mcucore::StringView text;
-};
-
 struct OnPartialTextData : BaseListenerCallbackData {
   EPartialToken token;
   EPartialTokenPosition position;
+  mcucore::StringView text;
+};
+
+struct OnCompleteTextData : BaseListenerCallbackData {
+  // This ctor exists only to help with implementing tests, in particular for
+  // CollapsingRequestDecoderListener, which creates one OnCompleteTextData
+  // instance for each string of related OnPartialText calls.
+  explicit OnCompleteTextData(const BaseListenerCallbackData& partial_data)
+      : BaseListenerCallbackData(partial_data) {}
+  EToken token;
   mcucore::StringView text;
 };
 

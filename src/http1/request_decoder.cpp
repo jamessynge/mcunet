@@ -164,11 +164,13 @@ struct ActiveDecodingState {
         full_decoder_input(full_decoder_input),
         base_data(*this) {}
 
-  void SetListener(RequestDecoderListener* listener) {
+  void SetListener(RequestDecoderListener* listener) const {
     impl.listener_ = listener;
   }
 
-  void SetDecodeFunction(DecodeFunction decode_function) {
+  void StopDecoding() const { SetDecodeFunction(DecodeInternalError); }
+
+  void SetDecodeFunction(DecodeFunction decode_function) const {
     MCU_VLOG(2) << MCU_PSD("Set") << MCU_NAME_VAL(decode_function);
     impl.decode_function_ = decode_function;
   }
@@ -239,6 +241,17 @@ struct ActiveDecodingState {
     OnErrorData on_error_data;
   };
 };
+
+void BaseListenerCallbackData::SetListener(
+    RequestDecoderListener* listener) const {
+  state.SetListener(listener);
+}
+
+void BaseListenerCallbackData::StopDecoding() const { state.StopDecoding(); }
+
+mcucore::StringView BaseListenerCallbackData::GetFullDecoderInput() const {
+  return state.full_decoder_input;
+}
 
 namespace {
 

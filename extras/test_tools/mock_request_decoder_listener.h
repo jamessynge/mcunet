@@ -13,6 +13,9 @@ namespace test {
 
 class MockRequestDecoderListener : public RequestDecoderListener {
  public:
+  // If any unexpected call occurs, stop decoding.
+  void OnUnexpectedCallStopDecoding();
+
   MOCK_METHOD(void, OnEvent, (const OnEventData& data), (override));
 
   MOCK_METHOD(void, OnCompleteText, (const OnCompleteTextData& data),
@@ -25,10 +28,10 @@ class MockRequestDecoderListener : public RequestDecoderListener {
 
 void ExpectEvent(MockRequestDecoderListener& rdl, EEvent event);
 void ExpectCompleteText(MockRequestDecoderListener& rdl, EToken token,
-                        std::string_view text);
+                        std::string_view expected_text);
 void ExpectPartialTextMatching(MockRequestDecoderListener& rdl,
-                               EPartialToken token, std::string text);
-void ExpectError(MockRequestDecoderListener& rdl, std::string message);
+                               EPartialToken token, std::string expected_text);
+void ExpectError(MockRequestDecoderListener& rdl, std::string expected_message);
 
 }  // namespace test
 }  // namespace http1

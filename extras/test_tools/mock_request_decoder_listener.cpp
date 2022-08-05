@@ -1,5 +1,7 @@
 #include "extras/test_tools/mock_request_decoder_listener.h"
 
+#include <McuCore.h>
+
 #include <memory>
 #include <string>
 #include <string_view>
@@ -19,6 +21,7 @@ using ::testing::Eq;
 using ::testing::ExplainMatchResult;
 using ::testing::Field;
 using ::testing::InSequence;
+using ::testing::StartsWith;
 
 MATCHER_P(IsEvent, event, "") {
   return ExplainMatchResult(Field(&OnEventData::event, Eq(event)), arg,
@@ -45,41 +48,99 @@ MATCHER_P(IsError, message, "") {
 
 }  // namespace
 
+void MockRequestDecoderListener::OnUnexpectedCallStopDecoding() {
+  // If any unexpected call occurs, stop decoding.
+  ON_CALL(*this, OnEvent).WillByDefault([](const OnEventData& data) {
+    LOG(INFO) << "Unexpected OnEvent, calling StopDecoding.";
+    data.StopDecoding();
+  });
+  ON_CALL(*this, OnCompleteText)
+      .WillByDefault([](const OnCompleteTextData& data) {
+        LOG(INFO) << "Unexpected OnCompleteText, calling StopDecoding.";
+        data.StopDecoding();
+      });
+  ON_CALL(*this, OnPartialText)
+      .WillByDefault([](const OnPartialTextData& data) {
+        LOG(INFO) << "Unexpected OnPartialText, calling StopDecoding.";
+        data.StopDecoding();
+      });
+  ON_CALL(*this, OnError).WillByDefault([](const OnErrorData& data) {
+    LOG(INFO) << "Unexpected OnError, calling StopDecoding.";
+    data.StopDecoding();
+  });
+}
+
 void ExpectEvent(MockRequestDecoderListener& rdl, const EEvent event) {
-  EXPECT_CALL(rdl, OnEvent(IsEvent(event)));
+  EXPECT_CALL(rdl, OnEvent(IsEvent(event)))
+      .WillOnce(
+          [](const OnEventData& data) { LOG(INFO) << "Expected OnEvent"; })
+      .RetiresOnSaturation();
 }
 
 void ExpectCompleteText(MockRequestDecoderListener& rdl, const EToken token,
-                        const std::string_view text) {
-  EXPECT_CALL(rdl, OnCompleteText(IsCompleteText(token, text)));
+                        const std::string_view expected_text) {
+  EXPECT_CALL(rdl, OnCompleteText(IsCompleteText(token, expected_text)))
+      .WillOnce([](const OnCompleteTextData& data) {
+        LOG(INFO) << "Expected OnCompleteText";
+      })
+      .RetiresOnSaturation();
 }
 
 void ExpectPartialTextMatching(MockRequestDecoderListener& rdl,
                                const EPartialToken token,
-                               const std::string text) {
+                               const std::string expected_text) {
+  auto test_info = testing::UnitTest::GetInstance()->current_test_info();
   std::shared_ptr<std::string> accumulator =
       std::make_shared<std::string>("NEVER_SET");
+  auto handler = [test_info, accumulator, expected_text](
+                     EPartialTokenPosition position,
+                     mcucore::StringView text) -> bool {
+    if (position == EPartialTokenPosition::kFirst) {
+      accumulator->clear();
+    }
+    *accumulator += std::string(text.data(), text.size());
+    if (position == EPartialTokenPosition::kLast) {
+      EXPECT_EQ(expected_text, *accumulator);
+    } else {
+      // The accumulated text should be a prefix of the expected text.
+      EXPECT_THAT(expected_text, StartsWith(*accumulator));
+    }
+    return !test_info->result()->Failed();
+  };
   InSequence s;
   EXPECT_CALL(rdl, OnPartialText(IsPartialTextTokenPosition(
                        token, EPartialTokenPosition::kFirst)))
-      .WillOnce([accumulator](const OnPartialTextData& data) {
-        *accumulator = std::string(data.text.data(), data.text.size());
-      });
+      .WillOnce([handler](const OnPartialTextData& data) {
+        if (!handler(data.position, data.text)) {
+          // Failed.
+          data.StopDecoding();
+        }
+      })
+      .RetiresOnSaturation();
   EXPECT_CALL(rdl, OnPartialText(IsPartialTextTokenPosition(
                        token, EPartialTokenPosition::kMiddle)))
-      .WillRepeatedly([accumulator](const OnPartialTextData& data) {
-        *accumulator += std::string(data.text.data(), data.text.size());
+      .WillRepeatedly([handler](const OnPartialTextData& data) {
+        if (!handler(data.position, data.text)) {
+          // Failed.
+          data.StopDecoding();
+        }
       });
   EXPECT_CALL(rdl, OnPartialText(IsPartialTextTokenPosition(
                        token, EPartialTokenPosition::kLast)))
-      .WillOnce([accumulator, text](const OnPartialTextData& data) {
-        *accumulator += std::string(data.text.data(), data.text.size());
-        EXPECT_EQ(*accumulator, text);
-      });
+      .WillOnce([handler](const OnPartialTextData& data) {
+        if (!handler(data.position, data.text)) {
+          // Failed.
+          data.StopDecoding();
+        }
+      })
+      .RetiresOnSaturation();
 }
 
 void ExpectError(MockRequestDecoderListener& rdl, const std::string message) {
-  EXPECT_CALL(rdl, OnError(IsError(message)));
+  EXPECT_CALL(rdl, OnError(IsError(message)))
+      .WillOnce(
+          [](const OnErrorData& data) { LOG(INFO) << "Expected OnError"; })
+      .RetiresOnSaturation();
 }
 
 }  // namespace test
