@@ -35,6 +35,14 @@ using ::testing::StartsWith;
 using ::testing::StrictMock;
 
 constexpr const size_t kDecodeBufferSize = 40;
+constexpr char kLongestMatchedLiteral[] = "HTTP/1.1\r\n";
+
+std::vector<std::vector<std::string>> GenerateMultipleRequestPartitions(
+    const std::string& full_request) {
+  return GenerateMultipleRequestPartitions(
+      full_request, kDecodeBufferSize,
+      std::string_view(kLongestMatchedLiteral).size());
+}
 
 bool TestHasFailed() {
   auto test_info = testing::UnitTest::GetInstance()->current_test_info();

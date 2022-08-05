@@ -72,6 +72,7 @@ cc_library(
         "//googletest:gunit_headers",
         "//mcucore/extras/test_tools:progmem_string_utils",
         "//mcucore/extras/test_tools:string_view_utils",
+        "//mcucore/src:string_view",
         "//mcunet/src/http1:request_decoder",
         "//mcunet/src/http1:request_decoder_constants",
     ],
@@ -114,6 +115,7 @@ cc_library(
         "//absl/log",
         "//absl/log:check",
         "//absl/strings",
+        "//mcucore/src:hex_escape",
         "//mcucore/src:string_view",
     ],
 )
