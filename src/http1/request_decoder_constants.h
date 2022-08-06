@@ -24,15 +24,16 @@ enum class EEvent : uint_fast8_t {
   // Matched the / at the start of the path in the request target.
   kPathStart,
 
-  // A forward slash in the path, including a trailing slash at the end of the
-  // path.
+  // Matched a forward slash in the path, including a trailing slash at the end
+  // of the path.
   kPathSeparator,
 
   // Have reached the end of the path. There may be a query after the path, in
   // which case EPartialToken::kQueryString events will be reported.
   kPathEnd,
 
-  // Decoded HTTP/1.1 at the end of the request's start line.
+  // Matched "HTTP/1.1" at the end of the request's start line. No other version
+  // is currently supported.
   kHttpVersion1_1,
 
   // All done decoding the headers.
@@ -44,11 +45,10 @@ enum class EEvent : uint_fast8_t {
 enum class EToken : uint_fast8_t {
   // The HTTP method's name (e.g. GET or DELETE). We don't support decoding of
   // HTTP methods that are longer than the largest string buffer allowed by the
-  //
+  // caller of RequestDecoder.
   kHttpMethod,
 
-  // A path segment is the the portion between two forward slashes in the
-  // path.
+  // A path segment is the the portion between two forward slashes in the path.
   kPathSegment,
 
   // The name of a header (e.g. "Content-Type");

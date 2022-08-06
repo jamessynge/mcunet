@@ -63,7 +63,8 @@ bool TestHasFailed() {
 // Decode the contents of buffer as long as it isn't empty and the decoder isn't
 // done.
 EDecodeBufferStatus DecodeBuffer(
-    RequestDecoder& decoder, std::string& buffer, const bool at_end,
+    RequestDecoder& decoder, RequestDecoderListener& listener,
+    std::string& buffer, const bool at_end,
     const size_t max_decode_buffer_size = kDecodeBufferSize) {
   CHECK(!buffer.empty());
   CHECK_GT(max_decode_buffer_size, 0);
@@ -78,7 +79,7 @@ EDecodeBufferStatus DecodeBuffer(
     mcucore::StringView view(copy.data(), initial_size);
 
     const bool buffer_is_full = view.size() >= max_decode_buffer_size;
-    status = decoder.DecodeBuffer(view, buffer_is_full);
+    status = decoder.DecodeBuffer(view, listener, buffer_is_full);
 
     // Make sure that the decoder only removed the prefix of the view. The one
     // exception is when the decoder cleared the view.
@@ -107,13 +108,11 @@ EDecodeBufferStatus DecodeBuffer(
 }
 
 EDecodeBufferStatus ResetAndDecodeFullBuffer(
-    RequestDecoder& decoder, RequestDecoderListener* rdl, std::string& buffer,
+    RequestDecoder& decoder, RequestDecoderListener& listener,
+    std::string& buffer,
     const size_t max_decode_buffer_size = kDecodeBufferSize) {
   decoder.Reset();
-  if (rdl != nullptr) {
-    decoder.SetListener(*rdl);
-  }
-  return DecodeBuffer(decoder, buffer, true, max_decode_buffer_size);
+  return DecodeBuffer(decoder, listener, buffer, true, max_decode_buffer_size);
 }
 
 // Apply the decoder to decoding the provided partition of a request. Returns
@@ -121,21 +120,19 @@ EDecodeBufferStatus ResetAndDecodeFullBuffer(
 // all the remaining undecoded text.
 std::tuple<EDecodeBufferStatus, std::string, std::string>
 DecodePartitionedRequest(
-    RequestDecoder& decoder, RequestDecoderListener* rdl,
+    RequestDecoder& decoder, RequestDecoderListener& listener,
     const std::vector<std::string>& partition,
     const size_t max_decode_buffer_size = kDecodeBufferSize) {
   CHECK_NE(partition.size(), 0);
   CHECK_GT(max_decode_buffer_size, 0);
   CHECK_LE(max_decode_buffer_size, mcucore::StringView::kMaxSize);
   decoder.Reset();
-  if (rdl != nullptr) {
-    decoder.SetListener(*rdl);
-  }
   std::string buffer;
   for (int ndx = 0; ndx < partition.size(); ++ndx) {
     const bool at_end = (ndx + 1) == partition.size();
     buffer += partition[ndx];
-    auto status = DecodeBuffer(decoder, buffer, at_end, max_decode_buffer_size);
+    auto status =
+        DecodeBuffer(decoder, listener, buffer, at_end, max_decode_buffer_size);
     if (status >= EDecodeBufferStatus::kComplete || at_end) {
       return {status, buffer, AppendRemainder(buffer, partition, ndx + 1)};
     }
@@ -156,19 +153,12 @@ TEST(RequestDecoderTest, ResetOnly) {
   decoder.Reset();
 }
 
-TEST(RequestDecoderTest, SetListenerOnly) {
-  StrictMock<MockRequestDecoderListener> rdl;
-  RequestDecoder decoder;
-  decoder.SetListener(rdl);
-}
-
 TEST(RequestDecoderTest, ResetRequired) {
   StrictMock<MockRequestDecoderListener> rdl;
   RequestDecoder decoder;
-  decoder.SetListener(rdl);
   const StringView original("GET ");
   auto buffer = original;
-  EXPECT_EQ(decoder.DecodeBuffer(buffer, false),
+  EXPECT_EQ(decoder.DecodeBuffer(buffer, rdl, false),
             EDecodeBufferStatus::kInternalError);
   EXPECT_EQ(buffer, original);
 }
@@ -193,7 +183,7 @@ TEST(RequestDecoderTest, ShortRequest) {
         ExpectEvent(rdl, EEvent::kHeadersEnd);
 
         const auto [status, buffer, remainder] =
-            DecodePartitionedRequest(decoder, &rdl, partition);
+            DecodePartitionedRequest(decoder, rdl, partition);
         EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
         EXPECT_THAT(body, StartsWith(buffer));
         EXPECT_THAT(remainder, body);
@@ -237,7 +227,7 @@ TEST(RequestDecoderTest, DeviceApiGetRequest) {
       ExpectEvent(rdl, EEvent::kHeadersEnd);
 
       const auto [status, buffer, remainder] =
-          DecodePartitionedRequest(decoder, &crdl, partition);
+          DecodePartitionedRequest(decoder, crdl, partition);
       EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
       EXPECT_THAT(body, StartsWith(buffer));
       EXPECT_THAT(remainder, body);
@@ -276,7 +266,7 @@ TEST(RequestDecoderTest, RequestTargetEndsWithSlash) {
       ExpectEvent(rdl, EEvent::kHeadersEnd);
 
       const auto [status, buffer, remainder] =
-          DecodePartitionedRequest(decoder, &crdl, partition);
+          DecodePartitionedRequest(decoder, crdl, partition);
       EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
       EXPECT_THAT(body, StartsWith(buffer));
       EXPECT_THAT(remainder, body);
@@ -314,7 +304,7 @@ TEST(RequestDecoderTest, RootPathPlusEmptyQueryString) {
       ExpectEvent(rdl, EEvent::kHeadersEnd);
 
       const auto [status, buffer, remainder] =
-          DecodePartitionedRequest(decoder, &crdl, partition);
+          DecodePartitionedRequest(decoder, crdl, partition);
       EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
       EXPECT_THAT(body, StartsWith(buffer));
       EXPECT_THAT(remainder, body);
@@ -360,7 +350,7 @@ TEST(RequestDecoderTest, MatchVariousHeaderForms) {
       ExpectEvent(rdl, EEvent::kHeadersEnd);
 
       const auto [status, buffer, remainder] =
-          DecodePartitionedRequest(decoder, &crdl, partition);
+          DecodePartitionedRequest(decoder, crdl, partition);
       EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
       EXPECT_THAT(body, StartsWith(buffer));
       EXPECT_THAT(remainder, body);
@@ -396,7 +386,7 @@ TEST(RequestDecoderTest, PercentEncodedPathSegment) {
       ExpectEvent(rdl, EEvent::kHeadersEnd);
 
       const auto [status, buffer, remainder] =
-          DecodePartitionedRequest(decoder, &crdl, partition);
+          DecodePartitionedRequest(decoder, crdl, partition);
       EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
       EXPECT_THAT(body, StartsWith(buffer));
       EXPECT_THAT(remainder, body);
@@ -447,7 +437,7 @@ TEST(RequestDecoderTest, LongPathSegments) {
         ExpectEvent(rdl, EEvent::kHeadersEnd);
 
         const auto [status, buffer, remainder] =
-            DecodePartitionedRequest(decoder, &crdl, partition);
+            DecodePartitionedRequest(decoder, crdl, partition);
         EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
         EXPECT_EQ(buffer, "");
         EXPECT_EQ(remainder, "");
@@ -488,7 +478,7 @@ TEST(RequestDecoderTest, LongPercentEncodedPathSegments) {
     ExpectEvent(rdl, EEvent::kHttpVersion1_1);
     ExpectEvent(rdl, EEvent::kHeadersEnd);
 
-    const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
+    const auto status = ResetAndDecodeFullBuffer(decoder, crdl, buffer);
     EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
     EXPECT_EQ(buffer, "");
     if (TestHasFailed()) {
@@ -527,7 +517,7 @@ TEST(RequestDecoderTest, LongQueryString) {
         ExpectEvent(rdl, EEvent::kHeadersEnd);
 
         const auto [status, buffer, remainder] =
-            DecodePartitionedRequest(decoder, &crdl, partition);
+            DecodePartitionedRequest(decoder, crdl, partition);
         EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
         EXPECT_EQ(buffer, "");
         EXPECT_EQ(remainder, "");
@@ -569,7 +559,7 @@ TEST(RequestDecoderTest, LongHeaderNamesOrValues) {
     ExpectEvent(rdl, EEvent::kHeadersEnd);
 
     const auto [status, buffer, remainder] =
-        DecodePartitionedRequest(decoder, &rdl, partition);
+        DecodePartitionedRequest(decoder, rdl, partition);
     EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
     EXPECT_EQ(buffer, "");
     EXPECT_EQ(remainder, "");
@@ -597,7 +587,7 @@ TEST(RequestDecoderTest, InvalidMethodStart) {
     CollapsingRequestDecoderListener crdl(rdl);
     ExpectError(rdl, "Invalid HTTP method start");
 
-    const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
+    const auto status = ResetAndDecodeFullBuffer(decoder, crdl, buffer);
     EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
     EXPECT_EQ(buffer, request);
     if (TestHasFailed()) {
@@ -624,7 +614,7 @@ TEST(RequestDecoderTest, InvalidMethodEnd) {
       CollapsingRequestDecoderListener crdl(rdl);
       ExpectError(rdl, "Invalid HTTP method end");
 
-      const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
+      const auto status = ResetAndDecodeFullBuffer(decoder, crdl, buffer);
       EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
       EXPECT_EQ(buffer, corrupt);
       if (TestHasFailed()) {
@@ -651,7 +641,7 @@ TEST(RequestDecoderTest, MethodTooLong) {
       ExpectError(rdl, "HTTP Method too long");
 
       const auto [status, buffer, remainder] =
-          DecodePartitionedRequest(decoder, &crdl, partition);
+          DecodePartitionedRequest(decoder, crdl, partition);
       EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
       EXPECT_THAT(request, StartsWith(buffer));
       EXPECT_EQ(remainder, request);
@@ -678,7 +668,7 @@ TEST(RequestDecoderTest, InvalidPathStart) {
     ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
     ExpectError(rdl, "Invalid path start");
 
-    const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
+    const auto status = ResetAndDecodeFullBuffer(decoder, crdl, buffer);
     EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
     EXPECT_EQ(buffer, corrupt);
     if (TestHasFailed()) {
@@ -713,7 +703,7 @@ TEST(RequestDecoderTest, InvalidPathChar) {
       ExpectEvent(rdl, EEvent::kPathEnd);
       ExpectError(rdl, "Invalid request target end");
 
-      const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
+      const auto status = ResetAndDecodeFullBuffer(decoder, crdl, buffer);
       EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
       EXPECT_EQ(buffer, corrupt);
       if (TestHasFailed()) {
@@ -750,7 +740,7 @@ TEST(RequestDecoderTest, InvalidQueryChar) {
       }
       ExpectError(rdl, "Invalid request target end");
 
-      const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
+      const auto status = ResetAndDecodeFullBuffer(decoder, crdl, buffer);
       EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
       EXPECT_EQ(buffer, corrupt);
       if (TestHasFailed()) {
@@ -780,7 +770,7 @@ TEST(RequestDecoderTest, UnsupportedHttpVersion) {
       ExpectError(rdl, "Unsupported HTTP version");
 
       const auto [status, buffer, remainder] =
-          DecodePartitionedRequest(decoder, &crdl, partition);
+          DecodePartitionedRequest(decoder, crdl, partition);
       EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
       EXPECT_THAT(request_tail, StartsWith(buffer));
       EXPECT_EQ(remainder, request_tail);
@@ -811,7 +801,7 @@ TEST(RequestDecoderTest, InvalidHeaderNameStart) {
     ExpectEvent(rdl, EEvent::kHttpVersion1_1);
     ExpectError(rdl, "Expected header name");
 
-    const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
+    const auto status = ResetAndDecodeFullBuffer(decoder, crdl, buffer);
     EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
     EXPECT_EQ(buffer, corrupt);
     if (TestHasFailed()) {
@@ -841,7 +831,7 @@ TEST(RequestDecoderTest, InvalidHeaderNameValueSeparator) {
     ExpectCompleteText(rdl, EToken::kHeaderName, "Host");
     ExpectError(rdl, "Expected colon after name");
 
-    const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
+    const auto status = ResetAndDecodeFullBuffer(decoder, crdl, buffer);
     EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
     EXPECT_EQ(buffer, corrupt);
     if (TestHasFailed()) {
@@ -877,7 +867,7 @@ TEST(RequestDecoderTest, EmptyHeaderValue) {
     ExpectCompleteText(rdl, EToken::kHeaderName, "Host");
     ExpectError(rdl, "Empty header value");
 
-    const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
+    const auto status = ResetAndDecodeFullBuffer(decoder, crdl, buffer);
     EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
     EXPECT_EQ(buffer, kTail);
     if (TestHasFailed()) {
@@ -907,7 +897,7 @@ TEST(RequestDecoderTest, IncorrectHeaderLineEnd) {
     ExpectCompleteText(rdl, EToken::kHeaderValue, "value");
     ExpectError(rdl, "Missing EOL after header");
 
-    const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
+    const auto status = ResetAndDecodeFullBuffer(decoder, crdl, buffer);
     EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
     EXPECT_EQ(buffer, corrupt);
     if (TestHasFailed()) {

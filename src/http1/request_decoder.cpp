@@ -159,15 +159,13 @@ using StrSize = StringView::size_type;
 // TODO(jamessynge): Are there any additional fields that we should add?
 struct ActiveDecodingState {
   ActiveDecodingState(const StringView& full_decoder_input,
+                      RequestDecoderListener& listener,
                       RequestDecoderImpl& impl)
       : input_buffer(full_decoder_input),
+        listener(listener),
         impl(impl),
         full_decoder_input(full_decoder_input),
         base_data(*this) {}
-
-  void SetListener(RequestDecoderListener* listener) const {
-    impl.listener_ = listener;
-  }
 
   void StopDecoding() const { SetDecodeFunction(DecodeInternalError); }
 
@@ -181,55 +179,46 @@ struct ActiveDecodingState {
 
   void OnEvent(EEvent event) {
     MCU_VLOG(3) << "==>> OnEvent " << event;
-    if (impl.listener_ != nullptr) {
-      on_event_data.event = event;
-      impl.listener_->OnEvent(on_event_data);
-    }
+    on_event_data.event = event;
+    listener.OnEvent(on_event_data);
   }
 
   void OnCompleteText(EToken token, StringView text) {
     MCU_VLOG(3) << "==>> OnCompleteText " << token << MCU_PSD(", ")
                 << mcucore::HexEscaped(text);
-    if (impl.listener_ != nullptr) {
-      on_complete_text_data.token = token;
-      on_complete_text_data.text = text;
-      impl.listener_->OnCompleteText(on_complete_text_data);
-    }
+    on_complete_text_data.token = token;
+    on_complete_text_data.text = text;
+    listener.OnCompleteText(on_complete_text_data);
   }
 
   void OnPartialText(EPartialToken token, EPartialTokenPosition position,
                      StringView text) {
     MCU_VLOG(3) << "==>> OnPartialText " << token << MCU_PSD(", ") << position
                 << MCU_PSD(", ") << mcucore::HexEscaped(text);
-    if (impl.listener_ != nullptr) {
-      on_partial_text_data.token = token;
-      on_partial_text_data.position = position;
-      on_partial_text_data.text = text;
-      impl.listener_->OnPartialText(on_partial_text_data);
-    }
+    on_partial_text_data.token = token;
+    on_partial_text_data.position = position;
+    on_partial_text_data.text = text;
+    listener.OnPartialText(on_partial_text_data);
   }
 
   void OnHeadersEnd() {
     MCU_VLOG(3) << "==>> OnHeadersEnd";
     SetDecodeFunction(DecodeInternalError);
-    if (impl.listener_ != nullptr) {
-      on_event_data.event = EEvent::kHeadersEnd;
-      impl.listener_->OnEvent(on_event_data);
-    }
+    on_event_data.event = EEvent::kHeadersEnd;
+    listener.OnEvent(on_event_data);
   }
 
   EDecodeBufferStatus OnIllFormed(mcucore::ProgmemString message) {
     MCU_VLOG(3) << "==>> OnIllFormed " << message;
     SetDecodeFunction(DecodeInternalError);
-    if (impl.listener_ != nullptr) {
-      on_error_data.message = message;
-      on_error_data.undecoded_input = input_buffer;
-      impl.listener_->OnError(on_error_data);
-    }
+    on_error_data.message = message;
+    on_error_data.undecoded_input = input_buffer;
+    listener.OnError(on_error_data);
     return EDecodeBufferStatus::kIllFormed;
   }
 
   StringView input_buffer;
+  RequestDecoderListener& listener;
   RequestDecoderImpl& impl;
   DecodeFunction partial_decode_function_if_full{nullptr};
   const StringView full_decoder_input;
@@ -242,11 +231,6 @@ struct ActiveDecodingState {
     OnErrorData on_error_data;
   };
 };
-
-void BaseListenerCallbackData::SetListener(
-    RequestDecoderListener* listener) const {
-  state.SetListener(listener);
-}
 
 void BaseListenerCallbackData::StopDecoding() const { state.StopDecoding(); }
 
@@ -745,19 +729,11 @@ RequestDecoderImpl::RequestDecoderImpl() {
   decode_function_ = DecodeInternalError;
 }
 
-void RequestDecoderImpl::Reset() {
-  decode_function_ = DecodeHttpMethod;
-  ClearListener();
-}
-
-void RequestDecoderImpl::SetListener(RequestDecoderListener& listener) {
-  listener_ = &listener;
-}
-
-void RequestDecoderImpl::ClearListener() { listener_ = nullptr; }
+void RequestDecoderImpl::Reset() { decode_function_ = DecodeHttpMethod; }
 
 EDecodeBufferStatus RequestDecoderImpl::DecodeBuffer(
-    StringView& buffer, const bool buffer_is_full) {
+    StringView& buffer, RequestDecoderListener& listener,
+    const bool buffer_is_full) {
   MCU_VLOG(1) << MCU_PSD("ENTER DecodeBuffer size=") << buffer.size()
               << MCU_NAME_VAL(buffer_is_full);
 
@@ -768,7 +744,7 @@ EDecodeBufferStatus RequestDecoderImpl::DecodeBuffer(
 
   const auto start_size = buffer.size();
 
-  ActiveDecodingState active_state(buffer, *this);
+  ActiveDecodingState active_state(buffer, listener, *this);
   auto status = EDecodeBufferStatus::kNeedMoreInput;
   while (!active_state.input_buffer.empty()) {
     const auto buffer_size_before_decode = active_state.input_buffer.size();

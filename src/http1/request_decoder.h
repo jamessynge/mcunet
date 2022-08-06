@@ -57,9 +57,6 @@ struct BaseListenerCallbackData {
   explicit BaseListenerCallbackData(const ActiveDecodingState& state)
       : state(state) {}
 
-  // Change the listener.
-  void SetListener(RequestDecoderListener* listener) const;
-
   // Puts the decoder into an error state, with the effect that it stops
   // decoding and returns kInternalError.
   void StopDecoding() const;
@@ -123,31 +120,15 @@ class RequestDecoderImpl {
 
   RequestDecoderImpl();
 
-  // Reset the decoder, ready to decode a new request. Among other things, this
-  // clears the listener, so SetListener must be called if decoding events are
-  // desired (most likely!). The reason to clear the listener is the expectation
-  // that different listeners will be used for different situations (i.e. you
-  // might switch listeners to choose a listener appropriate for a particular
-  // path prefix).
+  // Reset the decoder, ready to decode a new request.
   void Reset();
 
-  // Set the listener to be used when DecodeBuffer is next called.
-  void SetListener(RequestDecoderListener& listener);
-
-  // Clear listener_ (set to nullptr). This means that the decoder will drop
-  // events on the floor. This could be useful if one wants to discard the
-  // remainder of a message header, continuing decoding until EEvent::kComplete
-  // is returned by DecodeBuffer.
-  void ClearListener();
-
-  // Decodes some or all of the contents of buffer. If buffer_is_full is true,
-  // then it is assumed that size represents the maximum amount of data that can
-  // be provided at once. If an element of the HTTP request, e.g. a header name,
-  // that we're decoding is determined to be longer than can fit in a full
-  // buffer, then it is passed to the listener via the OnPartialText method,
-  // over as many DecodeBuffer calls as required to reach the end of that
-  // element of the HTTP request; otherwise OnCompleteText is used.
+  // Decodes some or all of the contents of buffer, calling the specified
+  // listener as entities are matched. If buffer_is_full is true, then it is
+  // assumed that size represents the maximum amount of data that can be
+  // provided at once.
   EDecodeBufferStatus DecodeBuffer(mcucore::StringView& buffer,
+                                   RequestDecoderListener& listener,
                                    bool buffer_is_full);
 
  private:
@@ -156,10 +137,6 @@ class RequestDecoderImpl {
   // Pointer to the next function to be used for decoding. Changes as different
   // entities in a request header is matched.
   DecodeFunction decode_function_;
-
-  // If nullptr, no events are delivered by the decoder, but decoding continues.
-  // This provides a means to deal with ill-formed or unsupported requests.
-  RequestDecoderListener* listener_{nullptr};
 };
 
 // Decodes HTTP/1.1 request headers.
@@ -167,10 +144,8 @@ class RequestDecoder : /*private*/ RequestDecoderImpl {
  public:
   using RequestDecoderImpl::RequestDecoderImpl;
 
-  using RequestDecoderImpl::ClearListener;
   using RequestDecoderImpl::DecodeBuffer;
   using RequestDecoderImpl::Reset;
-  using RequestDecoderImpl::SetListener;
 };
 
 // Placing these functions into namespace mcunet_http1_internal so they can be
