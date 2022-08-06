@@ -4,12 +4,15 @@
 
 #include <algorithm>
 #include <cctype>
+#include <optional>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <tuple>
 #include <vector>
 
 #include "absl/strings/str_cat.h"
+#include "extras/test_tools/collapsing_request_decoder_listener.h"
 #include "extras/test_tools/mock_request_decoder_listener.h"
 #include "extras/test_tools/string_utils.h"
 #include "gmock/gmock.h"
@@ -18,6 +21,12 @@
 
 namespace mcunet {
 namespace http1 {
+
+std::ostream& operator<<(std::ostream& strm, const OnCompleteTextData& data) {
+  strm << "{token=" << data.token << "}";
+  return strm;
+}
+
 namespace test {
 namespace {
 
@@ -29,12 +38,14 @@ using ::mcunet::http1::mcunet_http1_internal::IsTokenChar;
 using ::mcunet::test::AllCharsExcept;
 using ::mcunet::test::AllRegisteredMethodNames;
 using ::mcunet::test::AppendRemainder;
+using ::mcunet::test::EveryChar;
 using ::mcunet::test::GenerateMultipleRequestPartitions;
+using ::mcunet::test::PercentEncodeAllChars;
 using ::testing::InSequence;
 using ::testing::StartsWith;
 using ::testing::StrictMock;
 
-constexpr const size_t kDecodeBufferSize = 40;
+constexpr size_t kDecodeBufferSize = 40;
 constexpr char kLongestMatchedLiteral[] = "HTTP/1.1\r\n";
 
 std::vector<std::vector<std::string>> GenerateMultipleRequestPartitions(
@@ -69,16 +80,21 @@ EDecodeBufferStatus DecodeBuffer(
     const bool buffer_is_full = view.size() >= max_decode_buffer_size;
     status = decoder.DecodeBuffer(view, buffer_is_full);
 
-    // Make sure that the decoder only removed the prefix of the view.
+    // Make sure that the decoder only removed the prefix of the view. The one
+    // exception is when the decoder cleared the view.
     EXPECT_GE(initial_size, view.size());
     const size_t removed_size = initial_size - view.size();
-    EXPECT_EQ(copy.data() + removed_size, view.data());
+    if (view.data() == nullptr) {
+      EXPECT_EQ(view.size(), 0);
+    } else {
+      EXPECT_EQ(copy.data() + removed_size, view.data());
+    }
 
     // Make sure that the decoder didn't modify the passed in buffer.
     EXPECT_EQ(buffer.substr(0, initial_size), copy.substr(0, initial_size));
 
     // Remove the decoded prefix of buffer.
-    buffer.erase(0, initial_size - view.size());
+    buffer.erase(0, removed_size);
 
     // Are we done?
     LOG(INFO) << "decoder.DecodeBuffer returned " << status
@@ -203,6 +219,7 @@ TEST(RequestDecoderTest, DeviceApiGetRequest) {
                 << "----------------------------------------"
                 << "----------------------------------------";
       StrictMock<MockRequestDecoderListener> rdl;
+      CollapsingRequestDecoderListener crdl(rdl);
       InSequence s;
       ExpectCompleteText(rdl, EToken::kHttpMethod, "OPTIONS");
       ExpectEvent(rdl, EEvent::kPathStart);
@@ -220,43 +237,7 @@ TEST(RequestDecoderTest, DeviceApiGetRequest) {
       ExpectEvent(rdl, EEvent::kHeadersEnd);
 
       const auto [status, buffer, remainder] =
-          DecodePartitionedRequest(decoder, &rdl, partition);
-      EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
-      EXPECT_THAT(body, StartsWith(buffer));
-      EXPECT_THAT(remainder, body);
-      if (TestHasFailed()) {
-        return;
-      }
-    }
-  }
-}
-
-TEST(RequestDecoderTest, PercentEncodedPath) {
-  RequestDecoder decoder;
-  const char kRequestHeader[] =
-      "GET /%2F%Fa%c9%3f/ HTTP/1.1\r\n"
-      "\r\n";
-  const char kOptionalBody[] = "NotAHeaderName:NotAHeaderValue\r\n\r\n";
-
-  for (const auto body : {"", kOptionalBody}) {
-    for (auto partition : GenerateMultipleRequestPartitions(
-             absl::StrCat(kRequestHeader, body))) {
-      LOG(INFO) << "\n"
-                << "----------------------------------------"
-                << "----------------------------------------";
-      StrictMock<MockRequestDecoderListener> rdl;
-      InSequence s;
-      ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
-      ExpectEvent(rdl, EEvent::kPathStart);
-      ExpectPartialTextMatching(rdl, EPartialToken::kPathSegment,
-                                "\x2f\xfA\xC9?");
-      ExpectEvent(rdl, EEvent::kPathSeparator);
-      ExpectEvent(rdl, EEvent::kPathEnd);
-      ExpectEvent(rdl, EEvent::kHttpVersion1_1);
-      ExpectEvent(rdl, EEvent::kHeadersEnd);
-
-      const auto [status, buffer, remainder] =
-          DecodePartitionedRequest(decoder, &rdl, partition);
+          DecodePartitionedRequest(decoder, &crdl, partition);
       EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
       EXPECT_THAT(body, StartsWith(buffer));
       EXPECT_THAT(remainder, body);
@@ -282,6 +263,7 @@ TEST(RequestDecoderTest, RequestTargetEndsWithSlash) {
                 << "----------------------------------------"
                 << "----------------------------------------";
       StrictMock<MockRequestDecoderListener> rdl;
+      CollapsingRequestDecoderListener crdl(rdl);
       InSequence s;
       ExpectCompleteText(rdl, EToken::kHttpMethod, "HEAD");
       ExpectEvent(rdl, EEvent::kPathStart);
@@ -294,7 +276,7 @@ TEST(RequestDecoderTest, RequestTargetEndsWithSlash) {
       ExpectEvent(rdl, EEvent::kHeadersEnd);
 
       const auto [status, buffer, remainder] =
-          DecodePartitionedRequest(decoder, &rdl, partition);
+          DecodePartitionedRequest(decoder, &crdl, partition);
       EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
       EXPECT_THAT(body, StartsWith(buffer));
       EXPECT_THAT(remainder, body);
@@ -320,6 +302,7 @@ TEST(RequestDecoderTest, RootPathPlusEmptyQueryString) {
                 << "----------------------------------------"
                 << "----------------------------------------";
       StrictMock<MockRequestDecoderListener> rdl;
+      CollapsingRequestDecoderListener crdl(rdl);
       InSequence s;
       ExpectCompleteText(rdl, EToken::kHttpMethod, "POST");
       ExpectEvent(rdl, EEvent::kPathStart);
@@ -331,7 +314,7 @@ TEST(RequestDecoderTest, RootPathPlusEmptyQueryString) {
       ExpectEvent(rdl, EEvent::kHeadersEnd);
 
       const auto [status, buffer, remainder] =
-          DecodePartitionedRequest(decoder, &rdl, partition);
+          DecodePartitionedRequest(decoder, &crdl, partition);
       EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
       EXPECT_THAT(body, StartsWith(buffer));
       EXPECT_THAT(remainder, body);
@@ -360,6 +343,7 @@ TEST(RequestDecoderTest, MatchVariousHeaderForms) {
                 << "----------------------------------------"
                 << "----------------------------------------";
       StrictMock<MockRequestDecoderListener> rdl;
+      CollapsingRequestDecoderListener crdl(rdl);
       InSequence s;
       ExpectCompleteText(rdl, EToken::kHttpMethod, "PUT");
       ExpectEvent(rdl, EEvent::kPathStart);
@@ -376,7 +360,43 @@ TEST(RequestDecoderTest, MatchVariousHeaderForms) {
       ExpectEvent(rdl, EEvent::kHeadersEnd);
 
       const auto [status, buffer, remainder] =
-          DecodePartitionedRequest(decoder, &rdl, partition);
+          DecodePartitionedRequest(decoder, &crdl, partition);
+      EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
+      EXPECT_THAT(body, StartsWith(buffer));
+      EXPECT_THAT(remainder, body);
+      if (TestHasFailed()) {
+        return;
+      }
+    }
+  }
+}
+
+TEST(RequestDecoderTest, PercentEncodedPathSegment) {
+  RequestDecoder decoder;
+  const char kRequestHeader[] =
+      "GET /%2F%Fa%c9%3f/ HTTP/1.1\r\n"
+      "\r\n";
+  const char kOptionalBody[] = "NotAHeaderName:NotAHeaderValue\r\n\r\n";
+
+  for (const auto body : {"", kOptionalBody}) {
+    for (auto partition : GenerateMultipleRequestPartitions(
+             absl::StrCat(kRequestHeader, body))) {
+      LOG(INFO) << "\n"
+                << "----------------------------------------"
+                << "----------------------------------------";
+      StrictMock<MockRequestDecoderListener> rdl;
+      CollapsingRequestDecoderListener crdl(rdl);
+      InSequence s;
+      ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
+      ExpectEvent(rdl, EEvent::kPathStart);
+      ExpectCompleteText(rdl, EToken::kPathSegment, "\x2f\xfA\xC9?");
+      ExpectEvent(rdl, EEvent::kPathSeparator);
+      ExpectEvent(rdl, EEvent::kPathEnd);
+      ExpectEvent(rdl, EEvent::kHttpVersion1_1);
+      ExpectEvent(rdl, EEvent::kHeadersEnd);
+
+      const auto [status, buffer, remainder] =
+          DecodePartitionedRequest(decoder, &crdl, partition);
       EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
       EXPECT_THAT(body, StartsWith(buffer));
       EXPECT_THAT(remainder, body);
@@ -409,12 +429,13 @@ TEST(RequestDecoderTest, LongPathSegments) {
                   << "----------------------------------------";
         std::string segment1, segment2;
         StrictMock<MockRequestDecoderListener> rdl;
+        CollapsingRequestDecoderListener crdl(rdl);
         InSequence s;
         ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
         ExpectEvent(rdl, EEvent::kPathStart);
-        ExpectPartialTextMatching(rdl, EPartialToken::kPathSegment, kSegment1);
+        ExpectCompleteText(rdl, EToken::kPathSegment, kSegment1);
         ExpectEvent(rdl, EEvent::kPathSeparator);
-        ExpectPartialTextMatching(rdl, EPartialToken::kPathSegment, kSegment2);
+        ExpectCompleteText(rdl, EToken::kPathSegment, kSegment2);
         if (slash_at_end) {
           ExpectEvent(rdl, EEvent::kPathSeparator);
         }
@@ -426,7 +447,7 @@ TEST(RequestDecoderTest, LongPathSegments) {
         ExpectEvent(rdl, EEvent::kHeadersEnd);
 
         const auto [status, buffer, remainder] =
-            DecodePartitionedRequest(decoder, &rdl, partition);
+            DecodePartitionedRequest(decoder, &crdl, partition);
         EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
         EXPECT_EQ(buffer, "");
         EXPECT_EQ(remainder, "");
@@ -434,6 +455,44 @@ TEST(RequestDecoderTest, LongPathSegments) {
           return;
         }
       }
+    }
+  }
+}
+
+TEST(RequestDecoderTest, LongPercentEncodedPathSegments) {
+  RequestDecoder decoder;
+  const std::string segment1 = EveryChar();
+  const std::string encoded_segment1 = test::PercentEncodeAllChars(segment1);
+  const std::string segment2 = std::string(segment1.rbegin(), segment1.rend());
+  const std::string encoded_segment2 = test::PercentEncodeAllChars(segment2);
+  for (const auto slash_at_end : {true, false}) {
+    const auto request =
+        absl::StrCat("POST /", encoded_segment1, "/", encoded_segment2,
+                     (slash_at_end ? "/" : ""), " HTTP/1.1\r\n\r\n");
+    std::string buffer = request;
+    LOG(INFO) << "\n"
+              << "----------------------------------------"
+              << "----------------------------------------";
+    StrictMock<MockRequestDecoderListener> rdl;
+    CollapsingRequestDecoderListener crdl(rdl);
+    InSequence s;
+    ExpectCompleteText(rdl, EToken::kHttpMethod, "POST");
+    ExpectEvent(rdl, EEvent::kPathStart);
+    ExpectPartialTextMatching(rdl, EPartialToken::kPathSegment, segment1);
+    ExpectEvent(rdl, EEvent::kPathSeparator);
+    ExpectPartialTextMatching(rdl, EPartialToken::kPathSegment, segment2);
+    if (slash_at_end) {
+      ExpectEvent(rdl, EEvent::kPathSeparator);
+    }
+    ExpectEvent(rdl, EEvent::kPathEnd);
+    ExpectEvent(rdl, EEvent::kHttpVersion1_1);
+    ExpectEvent(rdl, EEvent::kHeadersEnd);
+
+    const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
+    EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
+    EXPECT_EQ(buffer, "");
+    if (TestHasFailed()) {
+      return;
     }
   }
 }
@@ -451,6 +510,7 @@ TEST(RequestDecoderTest, LongQueryString) {
                   << "----------------------------------------"
                   << "----------------------------------------";
         StrictMock<MockRequestDecoderListener> rdl;
+        CollapsingRequestDecoderListener crdl(rdl);
         InSequence s;
         ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
         ExpectEvent(rdl, EEvent::kPathStart);
@@ -467,7 +527,7 @@ TEST(RequestDecoderTest, LongQueryString) {
         ExpectEvent(rdl, EEvent::kHeadersEnd);
 
         const auto [status, buffer, remainder] =
-            DecodePartitionedRequest(decoder, &rdl, partition);
+            DecodePartitionedRequest(decoder, &crdl, partition);
         EXPECT_EQ(status, EDecodeBufferStatus::kComplete);
         EXPECT_EQ(buffer, "");
         EXPECT_EQ(remainder, "");
@@ -534,9 +594,10 @@ TEST(RequestDecoderTest, InvalidMethodStart) {
                          "\r\n";
     std::string buffer = request;
     StrictMock<MockRequestDecoderListener> rdl;
+    CollapsingRequestDecoderListener crdl(rdl);
     ExpectError(rdl, "Invalid HTTP method start");
 
-    const auto status = ResetAndDecodeFullBuffer(decoder, &rdl, buffer);
+    const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
     EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
     EXPECT_EQ(buffer, request);
     if (TestHasFailed()) {
@@ -560,10 +621,10 @@ TEST(RequestDecoderTest, InvalidMethodEnd) {
       const auto request = absl::StrCat("GET", corrupt);
       std::string buffer = request;
       StrictMock<MockRequestDecoderListener> rdl;
-      ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
+      CollapsingRequestDecoderListener crdl(rdl);
       ExpectError(rdl, "Invalid HTTP method end");
 
-      const auto status = ResetAndDecodeFullBuffer(decoder, &rdl, buffer);
+      const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
       EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
       EXPECT_EQ(buffer, corrupt);
       if (TestHasFailed()) {
@@ -585,11 +646,12 @@ TEST(RequestDecoderTest, MethodTooLong) {
                 << "----------------------------------------"
                 << "----------------------------------------";
       StrictMock<MockRequestDecoderListener> rdl;
+      CollapsingRequestDecoderListener crdl(rdl);
       InSequence s;
       ExpectError(rdl, "HTTP Method too long");
 
       const auto [status, buffer, remainder] =
-          DecodePartitionedRequest(decoder, &rdl, partition);
+          DecodePartitionedRequest(decoder, &crdl, partition);
       EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
       EXPECT_THAT(request, StartsWith(buffer));
       EXPECT_EQ(remainder, request);
@@ -612,10 +674,11 @@ TEST(RequestDecoderTest, InvalidPathStart) {
     const auto request = absl::StrCat("GET ", corrupt);
     std::string buffer = request;
     StrictMock<MockRequestDecoderListener> rdl;
+    CollapsingRequestDecoderListener crdl(rdl);
     ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
     ExpectError(rdl, "Invalid path start");
 
-    const auto status = ResetAndDecodeFullBuffer(decoder, &rdl, buffer);
+    const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
     EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
     EXPECT_EQ(buffer, corrupt);
     if (TestHasFailed()) {
@@ -640,6 +703,7 @@ TEST(RequestDecoderTest, InvalidPathChar) {
           absl::StrCat("GET /foo", (slash_at_end ? "/" : ""), corrupt);
       std::string buffer = request;
       StrictMock<MockRequestDecoderListener> rdl;
+      CollapsingRequestDecoderListener crdl(rdl);
       ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
       ExpectEvent(rdl, EEvent::kPathStart);
       ExpectCompleteText(rdl, EToken::kPathSegment, "foo");
@@ -649,7 +713,7 @@ TEST(RequestDecoderTest, InvalidPathChar) {
       ExpectEvent(rdl, EEvent::kPathEnd);
       ExpectError(rdl, "Invalid request target end");
 
-      const auto status = ResetAndDecodeFullBuffer(decoder, &rdl, buffer);
+      const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
       EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
       EXPECT_EQ(buffer, corrupt);
       if (TestHasFailed()) {
@@ -675,6 +739,7 @@ TEST(RequestDecoderTest, InvalidQueryChar) {
           absl::StrCat("GET /?", (has_query_text ? "a/b?c=d" : ""), corrupt);
       std::string buffer = request;
       StrictMock<MockRequestDecoderListener> rdl;
+      CollapsingRequestDecoderListener crdl(rdl);
       ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
       ExpectEvent(rdl, EEvent::kPathStart);
       ExpectEvent(rdl, EEvent::kPathEnd);
@@ -685,7 +750,7 @@ TEST(RequestDecoderTest, InvalidQueryChar) {
       }
       ExpectError(rdl, "Invalid request target end");
 
-      const auto status = ResetAndDecodeFullBuffer(decoder, &rdl, buffer);
+      const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
       EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
       EXPECT_EQ(buffer, corrupt);
       if (TestHasFailed()) {
@@ -707,6 +772,7 @@ TEST(RequestDecoderTest, UnsupportedHttpVersion) {
                 << "----------------------------------------"
                 << "----------------------------------------";
       StrictMock<MockRequestDecoderListener> rdl;
+      CollapsingRequestDecoderListener crdl(rdl);
       InSequence s;
       ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
       ExpectEvent(rdl, EEvent::kPathStart);
@@ -714,7 +780,7 @@ TEST(RequestDecoderTest, UnsupportedHttpVersion) {
       ExpectError(rdl, "Unsupported HTTP version");
 
       const auto [status, buffer, remainder] =
-          DecodePartitionedRequest(decoder, &rdl, partition);
+          DecodePartitionedRequest(decoder, &crdl, partition);
       EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
       EXPECT_THAT(request_tail, StartsWith(buffer));
       EXPECT_EQ(remainder, request_tail);
@@ -738,13 +804,14 @@ TEST(RequestDecoderTest, InvalidHeaderNameStart) {
     const auto request = absl::StrCat("GET / HTTP/1.1\r\n", corrupt);
     std::string buffer = request;
     StrictMock<MockRequestDecoderListener> rdl;
+    CollapsingRequestDecoderListener crdl(rdl);
     ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
     ExpectEvent(rdl, EEvent::kPathStart);
     ExpectEvent(rdl, EEvent::kPathEnd);
     ExpectEvent(rdl, EEvent::kHttpVersion1_1);
     ExpectError(rdl, "Expected header name");
 
-    const auto status = ResetAndDecodeFullBuffer(decoder, &rdl, buffer);
+    const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
     EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
     EXPECT_EQ(buffer, corrupt);
     if (TestHasFailed()) {
@@ -766,6 +833,7 @@ TEST(RequestDecoderTest, InvalidHeaderNameValueSeparator) {
     const auto request = absl::StrCat("GET / HTTP/1.1\r\nHost", corrupt);
     std::string buffer = request;
     StrictMock<MockRequestDecoderListener> rdl;
+    CollapsingRequestDecoderListener crdl(rdl);
     ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
     ExpectEvent(rdl, EEvent::kPathStart);
     ExpectEvent(rdl, EEvent::kPathEnd);
@@ -773,7 +841,7 @@ TEST(RequestDecoderTest, InvalidHeaderNameValueSeparator) {
     ExpectCompleteText(rdl, EToken::kHeaderName, "Host");
     ExpectError(rdl, "Expected colon after name");
 
-    const auto status = ResetAndDecodeFullBuffer(decoder, &rdl, buffer);
+    const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
     EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
     EXPECT_EQ(buffer, corrupt);
     if (TestHasFailed()) {
@@ -801,6 +869,7 @@ TEST(RequestDecoderTest, EmptyHeaderValue) {
         absl::StrCat("GET / HTTP/1.1\r\nHost:", whitespace, kTail);
     std::string buffer = request;
     StrictMock<MockRequestDecoderListener> rdl;
+    CollapsingRequestDecoderListener crdl(rdl);
     ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
     ExpectEvent(rdl, EEvent::kPathStart);
     ExpectEvent(rdl, EEvent::kPathEnd);
@@ -808,7 +877,7 @@ TEST(RequestDecoderTest, EmptyHeaderValue) {
     ExpectCompleteText(rdl, EToken::kHeaderName, "Host");
     ExpectError(rdl, "Empty header value");
 
-    const auto status = ResetAndDecodeFullBuffer(decoder, &rdl, buffer);
+    const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
     EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
     EXPECT_EQ(buffer, kTail);
     if (TestHasFailed()) {
@@ -829,6 +898,7 @@ TEST(RequestDecoderTest, IncorrectHeaderLineEnd) {
     const auto request = absl::StrCat("GET / HTTP/1.1\r\nname:value", corrupt);
     std::string buffer = request;
     StrictMock<MockRequestDecoderListener> rdl;
+    CollapsingRequestDecoderListener crdl(rdl);
     ExpectCompleteText(rdl, EToken::kHttpMethod, "GET");
     ExpectEvent(rdl, EEvent::kPathStart);
     ExpectEvent(rdl, EEvent::kPathEnd);
@@ -837,7 +907,7 @@ TEST(RequestDecoderTest, IncorrectHeaderLineEnd) {
     ExpectCompleteText(rdl, EToken::kHeaderValue, "value");
     ExpectError(rdl, "Missing EOL after header");
 
-    const auto status = ResetAndDecodeFullBuffer(decoder, &rdl, buffer);
+    const auto status = ResetAndDecodeFullBuffer(decoder, &crdl, buffer);
     EXPECT_EQ(status, EDecodeBufferStatus::kIllFormed);
     EXPECT_EQ(buffer, corrupt);
     if (TestHasFailed()) {

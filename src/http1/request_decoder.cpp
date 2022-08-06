@@ -3,6 +3,7 @@
 #include <McuCore.h>
 #include <ctype.h>  // pragma: keep standard include
 
+#include "http1/request_decoder_constants.h"
 #include "mcunet_config.h"
 
 namespace mcunet {
@@ -254,7 +255,6 @@ mcucore::StringView BaseListenerCallbackData::GetFullDecoderInput() const {
 }
 
 namespace {
-
 using CharMatchFunction = bool (*)(char c);
 
 bool HexCharToNibble(const char c, uint_fast8_t& nibble) {
@@ -347,7 +347,7 @@ EDecodeBufferStatus DecodePartialTokenStartHelper(
 // Required forward declarations.
 DECODER_FUNCTION(DecodeHeaderLines);
 DECODER_FUNCTION(DecodePathSegmentStart);
-DECODER_FUNCTION(DecodePercentEncodedPathSegmentEncodedChar);
+DECODER_FUNCTION(DecodePercentEncodedPathChar);
 
 EDecodeBufferStatus MatchedEndOfHeaderLine(ActiveDecodingState& state) {
   state.SetDecodeFunction(DecodeHeaderLines);
@@ -469,8 +469,8 @@ DECODER_FUNCTION(DecodeHttpVersion) {
                                 MCU_PSD("Unsupported HTTP version"));
 }
 
-// We've finished with the path and optional query string, so should be looking
-// at a space followed by the HTTP version.
+// We've finished with the path and optional query string, so should be
+// looking at a space followed by the HTTP version.
 DECODER_FUNCTION(MatchAfterRequestTarget) {
   DECODER_ENTRY_CHECKS(state);
   const char c = state.input_buffer.at(0);
@@ -526,44 +526,49 @@ DECODER_FUNCTION(DecodeAfterSegment) {
   return EDecodeBufferStatus::kDecodingInProgress;
 }
 
-// The path segment is apparently too long to fit in a buffer, so we pass
-// whatever we can find in the input_buffer to the listener.
-DECODER_FUNCTION(DecodePartialPathSegment) {
-  return DecodePartialTokenHelper(state, IsPChar, EPartialToken::kPathSegment,
-                                  DecodeAfterSegment);
-}
-
-// The path segment is apparently too long to fit in a buffer, so we pass
-// whatever we can find in the input_buffer to the listener.
-DECODER_FUNCTION(DecodePartialPathSegmentStart) {
-  return DecodePartialTokenStartHelper(
-      state, IsPChar, EPartialToken::kPathSegment, DecodePartialPathSegment);
-}
-
-// The path segment has a percent-encoded character in it (i.e. a '%' character
-// followed by two hexadecimal digits).
-DECODER_FUNCTION(DecodePercentEncodedPathSegment) {
-  DECODER_ENTRY_CHECKS(state);
+// The path segment is either too long to fit in a buffer, is split across input
+// buffers or contains a percent-encoded character.
+DECODER_FUNCTION(DecodeSplitPathSegment) {
   const auto beyond = FindFirstNotOf(state.input_buffer, IsPCharExceptPercent);
-  if (beyond != 0) {
-    const auto segment = state.input_buffer.prefix(
-        beyond < StringView::kMaxSize ? beyond : state.input_buffer.size());
-    state.input_buffer.remove_prefix(segment.size());
+  if (0 < beyond && beyond < StringView::kMaxSize) {
+    // We've got some non-percent path characters at the start of the buffer,
+    // followed by something else. Provide the former to the listener.
+    const auto segment = state.input_buffer.prefix(beyond);
+    state.input_buffer.remove_prefix(beyond);
+    if (state.input_buffer.starts_with('%')) {
+      state.SetDecodeFunction(DecodePercentEncodedPathChar);
+      state.OnPartialText(EPartialToken::kPathSegment,
+                          EPartialTokenPosition::kMiddle, segment);
+    } else {
+      state.SetDecodeFunction(DecodeAfterSegment);
+      state.OnPartialText(EPartialToken::kPathSegment,
+                          EPartialTokenPosition::kLast, segment);
+    }
+    return EDecodeBufferStatus::kDecodingInProgress;
+  } else if (beyond >= StringView::kMaxSize) {
+    // input_buffer contains only non-percent path characters, and is non-empty.
+    const auto segment = state.input_buffer;
+    state.input_buffer = StringView();
     state.OnPartialText(EPartialToken::kPathSegment,
                         EPartialTokenPosition::kMiddle, segment);
-  } else if (state.input_buffer.at(beyond) == '%') {
-    state.SetDecodeFunction(DecodePercentEncodedPathSegmentEncodedChar);
+    return EDecodeBufferStatus::kDecodingInProgress;
+  }
+  MCU_DCHECK_EQ(beyond, 0);
+  if (state.input_buffer.starts_with('%')) {
+    return DecodePercentEncodedPathChar(state);
   } else {
+    // The next character isn't a PChar character, so should be at the end of
+    // the path segment.
     state.SetDecodeFunction(DecodeAfterSegment);
     state.OnPartialText(EPartialToken::kPathSegment,
                         EPartialTokenPosition::kLast, StringView());
+    return EDecodeBufferStatus::kDecodingInProgress;
   }
-  return EDecodeBufferStatus::kDecodingInProgress;
 }
 
-// The path segment has a percent-encoded character in it (i.e. a '%' character
-// followed by two hexadecimal digits).
-DECODER_FUNCTION(DecodePercentEncodedPathSegmentEncodedChar) {
+// The path segment has a percent-encoded character in it (i.e. a '%'
+// character followed by two hexadecimal digits).
+DECODER_FUNCTION(DecodePercentEncodedPathChar) {
   MCU_DCHECK_EQ(state.input_buffer.at(0), '%');
   if (state.input_buffer.size() < 3) {
     return EDecodeBufferStatus::kNeedMoreInput;
@@ -574,7 +579,9 @@ DECODER_FUNCTION(DecodePercentEncodedPathSegmentEncodedChar) {
     char c = static_cast<char>(high << 4 | low);
     StringView decoded(&c, 1);
     state.input_buffer.remove_prefix(3);
-    state.SetDecodeFunction(DecodePercentEncodedPathSegment);
+    if (!state.input_buffer.starts_with('%')) {
+      state.SetDecodeFunction(DecodeSplitPathSegment);
+    }
     state.OnPartialText(EPartialToken::kPathSegment,
                         EPartialTokenPosition::kMiddle, decoded);
     return EDecodeBufferStatus::kDecodingInProgress;
@@ -604,7 +611,7 @@ DECODER_FUNCTION(DecodePathSegmentStart) {
       // There are percent-encoded characters, so we need to do extra work. We
       // handle this by using separate decoder functions for the encoded vs.
       // the "normal" characters.
-      state.SetDecodeFunction(DecodePercentEncodedPathSegmentEncodedChar);
+      state.SetDecodeFunction(DecodePercentEncodedPathChar);
       state.OnPartialText(EPartialToken::kPathSegment,
                           EPartialTokenPosition::kFirst, segment);
       return EDecodeBufferStatus::kDecodingInProgress;
@@ -618,11 +625,21 @@ DECODER_FUNCTION(DecodePathSegmentStart) {
     }
   } else {
     // The input_buffer isn't empty, and it consists only of path characters,
-    // so we can't tell where the end of the segment will be. This may
-    // indicate that the path segment is longer than the maximum size of the
-    // caller's buffer.
-    state.partial_decode_function_if_full = DecodePartialPathSegmentStart;
-    return EDecodeBufferStatus::kNeedMoreInput;
+    // so we can't tell where the end of the segment will be. This may indicate
+    // that the path segment is longer than the maximum size of the caller's
+    // buffer. Since someone will need to do the buffering of the portion of the
+    // input already available, and in the case of the caller, it may need to
+    // copy the input from the end of its buffer to the start in order to make
+    // room for more data, we choose instead to provide the available data to
+    // the listener, which will allow us to empty the input buffer. Sometimes
+    // this may be sub-optimal, but it will always eliminate another scan of the
+    // leading portion of the path segment.
+    const auto segment = state.input_buffer;
+    state.input_buffer = StringView();
+    state.SetDecodeFunction(DecodeSplitPathSegment);
+    state.OnPartialText(EPartialToken::kPathSegment,
+                        EPartialTokenPosition::kFirst, segment);
+    return EDecodeBufferStatus::kDecodingInProgress;
   }
 }
 
@@ -639,19 +656,6 @@ DECODER_FUNCTION(DecodeStartOfPath) {
   return REPORT_ILLFORMED(state, "Invalid path start");
 }
 
-// We've finished with the method, so should be looking at a space followed
-// by the request target.
-DECODER_FUNCTION(DecodeAfterMethod) {
-  DECODER_ENTRY_CHECKS(state);
-  const char c = state.input_buffer.at(0);
-  if (c == ' ') {
-    state.input_buffer.remove_prefix(1);
-    state.SetDecodeFunction(DecodeStartOfPath);
-    return EDecodeBufferStatus::kDecodingInProgress;
-  }
-  return REPORT_ILLFORMED(state, "Invalid HTTP method end");
-}
-
 DECODER_FUNCTION(DecodeHttpMethodError) {
   return REPORT_ILLFORMED(state, "HTTP Method too long");
 }
@@ -662,10 +666,14 @@ DECODER_FUNCTION(DecodeHttpMethod) {
 
   const auto beyond = FindFirstNotOf(state.input_buffer, IsMethodChar);
   if (0 < beyond && beyond < StringView::kMaxSize) {
-    // We've got a non-method segment.
+    // We've got a non-method char after a method char (or several).
     const auto method = state.input_buffer.prefix(beyond);
     state.input_buffer.remove_prefix(beyond);
-    state.SetDecodeFunction(DecodeAfterMethod);
+    if (!state.input_buffer.starts_with(' ')) {
+      return REPORT_ILLFORMED(state, "Invalid HTTP method end");
+    }
+    state.input_buffer.remove_prefix(1);
+    state.SetDecodeFunction(DecodeStartOfPath);
     state.OnCompleteText(EToken::kHttpMethod, method);
     return EDecodeBufferStatus::kDecodingInProgress;
   } else if (beyond == 0) {
@@ -694,17 +702,16 @@ size_t PrintValueTo(DecodeFunction decode_function, Print& out) {
   if (decode_function == symbol) {                                 \
     return mcucore::PrintProgmemStringData(MCU_PSD(#symbol), out); \
   }
-  /*
+  /*****************************************************************************
 Command for generating the 'table' below:
 
 egrep "^DECODER_FUNCTION\(\w+\) \{" mcunet/src/http1/request_decoder.cc | \
   cut '-d ' -f1 | \
   sed -e "s/DECODER_FUNCTION/  OUTPUT_METHOD_NAME/ ; s/$/;/" | \
-  sort
+  (echo;sort;echo)
 
-  */
+*******************************************************************************/
 
-  OUTPUT_METHOD_NAME(DecodeAfterMethod);
   OUTPUT_METHOD_NAME(DecodeAfterPath);
   OUTPUT_METHOD_NAME(DecodeAfterSegment);
   OUTPUT_METHOD_NAME(DecodeHeaderLines);
@@ -717,12 +724,10 @@ egrep "^DECODER_FUNCTION\(\w+\) \{" mcunet/src/http1/request_decoder.cc | \
   OUTPUT_METHOD_NAME(DecodePartialHeaderNameStart);
   OUTPUT_METHOD_NAME(DecodePartialHeaderValue);
   OUTPUT_METHOD_NAME(DecodePartialHeaderValueStart);
-  OUTPUT_METHOD_NAME(DecodePartialPathSegment);
-  OUTPUT_METHOD_NAME(DecodePartialPathSegmentStart);
   OUTPUT_METHOD_NAME(DecodePartialQueryString);
   OUTPUT_METHOD_NAME(DecodePathSegmentStart);
-  OUTPUT_METHOD_NAME(DecodePercentEncodedPathSegment);
-  OUTPUT_METHOD_NAME(DecodePercentEncodedPathSegmentEncodedChar);
+  OUTPUT_METHOD_NAME(DecodePercentEncodedPathChar);
+  OUTPUT_METHOD_NAME(DecodeSplitPathSegment);
   OUTPUT_METHOD_NAME(DecodeStartOfPath);
   OUTPUT_METHOD_NAME(MatchAfterRequestTarget);
   OUTPUT_METHOD_NAME(MatchHeaderNameValueSeparator);

@@ -14,6 +14,7 @@ cc_test(
         "//absl/strings",
         "//googletest:gunit_main",
         "//mcucore/src:string_view",
+        "//mcunet/extras/test_tools:collapsing_request_decoder_listener",
         "//mcunet/extras/test_tools:mock_request_decoder_listener",
         "//mcunet/extras/test_tools:string_utils",
         "//mcunet/src/http1:request_decoder",

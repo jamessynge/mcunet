@@ -9,6 +9,21 @@ package(
 )
 
 cc_library(
+    name = "collapsing_request_decoder_listener",
+    srcs = ["collapsing_request_decoder_listener.cc"],
+    hdrs = ["collapsing_request_decoder_listener.h"],
+    deps = [
+        ":string_utils",
+        "//absl/log:check",
+        "//googletest:gunit_headers",
+        "//mcucore/extras/test_tools:string_view_utils",
+        "//mcucore/src:string_view",
+        "//mcunet/src/http1:request_decoder",
+        "//mcunet/src/http1:request_decoder_constants",
+    ],
+)
+
+cc_library(
     name = "fake_platform_network",
     hdrs = ["fake_platform_network.h"],
     deps = ["//mcunet/src:platform_network_interface"],
