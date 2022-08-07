@@ -11,8 +11,7 @@ TcpServerConnection::TcpServerConnection(uint8_t* write_buffer,
     : WriteBufferedConnection(write_buffer, write_buffer_limit, client),
       disconnect_data_(disconnect_data),
       sock_num_(client.getSocketNumber()) {
-  MCU_VLOG(5) << MCU_FLASHSTR("TcpServerConnection@") << this
-              << MCU_FLASHSTR(" ctor");
+  MCU_VLOG(5) << MCU_PSD("TcpServerConnection@") << this << MCU_PSD(" ctor");
   disconnect_data_.Reset();
 }
 
@@ -28,9 +27,8 @@ void TcpServerConnection::close() {
 
   auto socket_number = sock_num();
   auto status = PlatformNetwork::SocketStatus(sock_num_);
-  MCU_VLOG(2) << MCU_FLASHSTR("TcpServerConnection::close, sock_num=")
-              << sock_num_ << MCU_FLASHSTR(", status=") << mcucore::BaseHex
-              << status;
+  MCU_VLOG(2) << MCU_PSD("TcpServerConnection::close, sock_num=") << sock_num_
+              << MCU_PSD(", status=") << mcucore::BaseHex << status;
   if (status == SnSR::ESTABLISHED || status == SnSR::CLOSE_WAIT) {
     // We have an open connection. Make sure that any data in the write buffer
     // is sent.

@@ -56,11 +56,11 @@ bool ServerSocket::PickClosedSocket() {
       last_status_ = PlatformNetwork::SocketStatus(sock_num_);
       return true;
     }
-    MCU_VLOG(1) << MCU_FLASHSTR("listen for ") << tcp_port_
-                << MCU_FLASHSTR(" failed with socket ") << sock_num_;
+    MCU_VLOG(1) << MCU_PSD("listen for ") << tcp_port_
+                << MCU_PSD(" failed with socket ") << sock_num_;
     sock_num_ = MAX_SOCK_NUM;
   } else {
-    MCU_VLOG(1) << MCU_FLASHSTR("No free socket for ") << tcp_port_;
+    MCU_VLOG(1) << MCU_PSD("No free socket for ") << tcp_port_;
   }
   return false;
 }
@@ -85,24 +85,24 @@ void ServerSocket::SocketLost() {
   disconnect_data_.RecordDisconnect();
 }
 
-#define STATUS_IS_UNEXPECTED_MESSAGE(expected_str, some_status,               \
-                                     current_status)                          \
-  mcucore::BaseHex << MCU_FLASHSTR("Expected " #some_status " to be ")        \
-                   << MCU_FLASHSTR(expected_str) << MCU_FLASHSTR(", but is ") \
-                   << mcucore::BaseHex << some_status                         \
-                   << MCU_FLASHSTR("; current status is ") << current_status
+#define STATUS_IS_UNEXPECTED_MESSAGE(expected_str, some_status,     \
+                                     current_status)                \
+  mcucore::BaseHex << MCU_PSD("Expected " #some_status " to be ")   \
+                   << MCU_PSD(expected_str) << MCU_PSD(", but is ") \
+                   << mcucore::BaseHex << some_status               \
+                   << MCU_PSD("; current status is ") << current_status
 
-#define VERIFY_STATUS_IS(expected_status, some_status)                        \
-  MCU_DCHECK_EQ(expected_status, some_status)                                 \
-      << mcucore::BaseHex << MCU_FLASHSTR("Expected " #some_status " to be ") \
-      << expected_status << MCU_FLASHSTR(", but is ") << some_status
+#define VERIFY_STATUS_IS(expected_status, some_status)                   \
+  MCU_DCHECK_EQ(expected_status, some_status)                            \
+      << mcucore::BaseHex << MCU_PSD("Expected " #some_status " to be ") \
+      << expected_status << MCU_PSD(", but is ") << some_status
 
 bool ServerSocket::BeginListening() {
   if (!HasSocket()) {
     return false;
   } else if (tcp_port_ == PlatformNetwork::SocketIsTcpListener(sock_num_)) {
     // Already listening.
-    MCU_VLOG(1) << MCU_FLASHSTR("Already listening, last_status_ is ")
+    MCU_VLOG(1) << MCU_PSD("Already listening, last_status_ is ")
                 << mcucore::BaseHex << last_status_;
     last_status_ = PlatformNetwork::SocketStatus(sock_num_);
     return true;
@@ -114,15 +114,15 @@ bool ServerSocket::BeginListening() {
 
   if (PlatformNetwork::InitializeTcpListenerSocket(sock_num_, tcp_port_)) {
     last_status_ = PlatformNetwork::SocketStatus(sock_num_);
-    MCU_VLOG(1) << MCU_FLASHSTR("Listening to port ") << tcp_port_
-                << MCU_FLASHSTR(" on socket ") << sock_num_
-                << MCU_FLASHSTR(", last_status is ") << mcucore::BaseHex
+    MCU_VLOG(1) << MCU_PSD("Listening to port ") << tcp_port_
+                << MCU_PSD(" on socket ") << sock_num_
+                << MCU_PSD(", last_status is ") << mcucore::BaseHex
                 << last_status_;
     VERIFY_STATUS_IS(SnSR::LISTEN, last_status_);
     return true;
   }
-  MCU_VLOG(1) << MCU_FLASHSTR("listen for ") << tcp_port_
-              << MCU_FLASHSTR(" failed with socket ") << sock_num_;
+  MCU_VLOG(1) << MCU_PSD("listen for ") << tcp_port_
+              << MCU_PSD(" failed with socket ") << sock_num_;
   return false;
 }
 
@@ -148,12 +148,12 @@ void ServerSocket::PerformIO() {
 
   if (was_open && !is_open) {
     // Connection closed without us taking action. Let the listener know.
-    MCU_VLOG(2) << MCU_FLASHSTR("was open, not now");
+    MCU_VLOG(2) << MCU_PSD("was open, not now");
     if (!disconnect_data_.disconnected) {
       disconnect_data_.RecordDisconnect();
       listener_.OnDisconnect();
     } else {
-      MCU_VLOG(2) << MCU_FLASHSTR("Disconnect already recorded");
+      MCU_VLOG(2) << MCU_PSD("Disconnect already recorded");
     }
     // We'll deal with the new status next time (e.g. FIN_WAIT or closing)
     return;
@@ -184,11 +184,11 @@ void ServerSocket::PerformIO() {
     case SnSR::ESTABLISHED:
       if (!was_open) {
         VERIFY_STATUS_IS(SnSR::LISTEN, past_status)
-            << MCU_FLASHSTR(" while handling ESTABLISHED");
+            << MCU_PSD(" while handling ESTABLISHED");
         AnnounceConnected();
       } else {
         VERIFY_STATUS_IS(SnSR::ESTABLISHED, past_status)
-            << MCU_FLASHSTR(" while handling ESTABLISHED");
+            << MCU_PSD(" while handling ESTABLISHED");
         AnnounceCanRead();
       }
       break;
@@ -196,7 +196,7 @@ void ServerSocket::PerformIO() {
     case SnSR::CLOSE_WAIT:
       if (!was_open) {
         VERIFY_STATUS_IS(SnSR::LISTEN, past_status)
-            << MCU_FLASHSTR(" while handling CLOSE_WAIT");
+            << MCU_PSD(" while handling CLOSE_WAIT");
         AnnounceConnected();
       } else {
         MCU_DCHECK(was_open) << STATUS_IS_UNEXPECTED_MESSAGE(
@@ -222,7 +222,7 @@ void ServerSocket::PerformIO() {
       // This is a transient state during setup of a TCP listener, and should
       // not be visible to us because BeginListening should make calls that
       // complete the process.
-      MCU_DCHECK(false) << MCU_FLASHSTR(
+      MCU_DCHECK(false) << MCU_PSD(
                                "Socket in INIT state, incomplete LISTEN setup; "
                                "past_status is ")
                         << past_status;
@@ -243,10 +243,9 @@ void ServerSocket::PerformIO() {
     case SnSR::IPRAW:
     case SnSR::MACRAW:
     case SnSR::PPPOE:
-      MCU_DCHECK(false) << MCU_FLASHSTR("Socket ") << sock_num_
-                        << mcucore::BaseHex
-                        << MCU_FLASHSTR(" has unexpected status ") << status
-                        << MCU_FLASHSTR(", past_status is ") << past_status;
+      MCU_DCHECK(false) << MCU_PSD("Socket ") << sock_num_ << mcucore::BaseHex
+                        << MCU_PSD(" has unexpected status ") << status
+                        << MCU_PSD(", past_status is ") << past_status;
       CloseHardwareSocket();
       break;
 
@@ -306,21 +305,20 @@ void ServerSocket::HandleCloseWait() {
     listener_.OnCanRead(conn);
   } else {
     listener_.OnHalfClosed(conn);
-    MCU_VLOG(2) << MCU_FLASHSTR("HandleCloseWait ")
-                << MCU_FLASHSTR("disconnected=")
+    MCU_VLOG(2) << MCU_PSD("HandleCloseWait ") << MCU_PSD("disconnected=")
                 << disconnect_data_.disconnected;
   }
   DetectListenerInitiatedDisconnect();
 }
 
 void ServerSocket::DetectListenerInitiatedDisconnect() {
-  MCU_VLOG(9) << MCU_FLASHSTR("DetectListenerInitiatedDisconnect ")
-              << MCU_FLASHSTR("disconnected=") << disconnect_data_.disconnected;
+  MCU_VLOG(9) << MCU_PSD("DetectListenerInitiatedDisconnect ")
+              << MCU_PSD("disconnected=") << disconnect_data_.disconnected;
   if (disconnect_data_.disconnected) {
     auto new_status = PlatformNetwork::SocketStatus(sock_num_);
-    MCU_VLOG(2) << MCU_FLASHSTR("DetectListenerInitiatedDisconnect")
-                << mcucore::BaseHex << MCU_FLASHSTR(" last_status=")
-                << last_status_ << MCU_FLASHSTR(" new_status=") << new_status;
+    MCU_VLOG(2) << MCU_PSD("DetectListenerInitiatedDisconnect")
+                << mcucore::BaseHex << MCU_PSD(" last_status=") << last_status_
+                << MCU_PSD(" new_status=") << new_status;
     last_status_ = new_status;
   }
 }
@@ -329,15 +327,14 @@ void ServerSocket::DetectCloseTimeout() {
   if (disconnect_data_.disconnected &&
       disconnect_data_.ElapsedDisconnectTime() > kDisconnectMaxMillis) {
     // Time to give up.
-    MCU_VLOG(2) << MCU_FLASHSTR("DetectCloseTimeout closing socket");
+    MCU_VLOG(2) << MCU_PSD("DetectCloseTimeout closing socket");
     CloseHardwareSocket();
   }
 }
 
 void ServerSocket::CloseHardwareSocket() {
-  MCU_VLOG(2) << MCU_FLASHSTR("CloseHardwareSocket")
-              << MCU_FLASHSTR(" last_status=") << mcucore::BaseHex
-              << last_status_;
+  MCU_VLOG(2) << MCU_PSD("CloseHardwareSocket") << MCU_PSD(" last_status=")
+              << mcucore::BaseHex << last_status_;
   PlatformNetwork::CloseSocket(sock_num_);
   last_status_ = PlatformNetwork::SocketStatus(sock_num_);
   MCU_DCHECK_EQ(last_status_, SnSR::CLOSED);

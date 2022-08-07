@@ -15,7 +15,7 @@ void IpAddress::GenerateAddress() {
   (*this)[1] = 254;
   (*this)[2] = random(1, 255);
   (*this)[3] = random(0, 256);
-  MCU_VLOG(5) << MCU_FLASHSTR("IpAddress::GenerateAddress: ") << *this;
+  MCU_VLOG(5) << MCU_PSD("IpAddress::GenerateAddress: ") << *this;
 }
 
 mcucore::Status IpAddress::ReadFromRegion(mcucore::EepromRegionReader& region) {

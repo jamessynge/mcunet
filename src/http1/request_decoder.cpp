@@ -924,7 +924,7 @@ egrep "^DECODER_FUNCTION\(\w+\) \{" mcunet/src/http1/request_decoder.cc | \
 
 #undef OUTPUT_METHOD_NAME
 
-  MCU_CHECK(false) << MCU_FLASHSTR(                       // COV_NF_LINE
+  MCU_CHECK(false) << MCU_PSD(                            // COV_NF_LINE
       "Haven't implemented a case for decode_function");  // COV_NF_LINE
   return 0;                                               // COV_NF_LINE
 }

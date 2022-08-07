@@ -6,7 +6,7 @@ namespace mcunet {
 
 void DisconnectData::RecordDisconnect() {
   if (!disconnected) {
-    MCU_VLOG(2) << MCU_FLASHSTR("DisconnectData::RecordDisconnect");
+    MCU_VLOG(2) << MCU_PSD("DisconnectData::RecordDisconnect");
     disconnected = true;
     disconnect_time_millis = millis();
   }

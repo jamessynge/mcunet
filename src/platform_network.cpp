@@ -100,11 +100,11 @@ bool PlatformNetwork::InitializeTcpListenerSocket(uint8_t sock_num,
   MCU_DCHECK_LT(sock_num, MAX_SOCK_NUM);
   const auto status = SocketStatus(sock_num);
   // EthernetClass::_server_port is the port that a socket is listening to.
-  MCU_VLOG(3) << MCU_FLASHSTR("PlatformNetwork::InitializeTcpListenerSocket(")
-              << sock_num << MCU_FLASHSTR(", ") << tcp_port
-              << MCU_FLASHSTR(") _server_port is ")
-              << EthernetClass::_server_port[sock_num]
-              << MCU_FLASHSTR(", status=") << status;
+  MCU_VLOG(3) << MCU_PSD("PlatformNetwork::InitializeTcpListenerSocket(")
+              << sock_num << MCU_PSD(", ") << tcp_port
+              << MCU_PSD(") _server_port is ")
+              << EthernetClass::_server_port[sock_num] << MCU_PSD(", status=")
+              << status;
   if (status == SnSR::CLOSED) {
     if (EthernetClass::_server_port[sock_num] == tcp_port ||
         EthernetClass::_server_port[sock_num] == 0) {
@@ -115,14 +115,14 @@ bool PlatformNetwork::InitializeTcpListenerSocket(uint8_t sock_num,
       EthernetClass::_server_port[sock_num] = tcp_port;
       return true;
     } else {
-      MCU_VLOG(1) << MCU_FLASHSTR("Socket ") << sock_num
-                  << MCU_FLASHSTR(" already used for port ")
-                  << EthernetClass::_server_port[sock_num]
-                  << MCU_FLASHSTR(", not ") << tcp_port;
+      MCU_VLOG(1) << MCU_PSD("Socket ") << sock_num
+                  << MCU_PSD(" already used for port ")
+                  << EthernetClass::_server_port[sock_num] << MCU_PSD(", not ")
+                  << tcp_port;
     }
   } else {
-    MCU_VLOG(1) << MCU_FLASHSTR("Socket ") << sock_num
-                << MCU_FLASHSTR(" not closed; status=") << status;
+    MCU_VLOG(1) << MCU_PSD("Socket ") << sock_num
+                << MCU_PSD(" not closed; status=") << status;
   }
   return false;
 #endif  // MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
@@ -134,7 +134,7 @@ bool PlatformNetwork::AcceptConnection(uint8_t sock_num) {
   CALL_PNAPI_METHOD(AcceptConnection, (sock_num));
 #else   // !MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
   // There really isn't any need to call this method when using a W5500.
-  MCU_VLOG(3) << MCU_FLASHSTR(
+  MCU_VLOG(3) << MCU_PSD(
       "PlatformNetwork::AcceptConnection called unexpectedly");
   return false;
 #endif  // MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION

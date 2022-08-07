@@ -32,7 +32,7 @@ static ::DhcpClass dhcp;
 
 // static
 void Mega2560Eth::SetupW5500(uint8_t max_sock_num) {
-  MCU_VLOG(3) << MCU_FLASHSTR("SetupW5500 Entry");
+  MCU_VLOG(3) << MCU_PSD("SetupW5500 Entry");
 
   // Make sure that the SD Card interface is not the selected SPI device.
   pinMode(kSDcardSelectPin, OUTPUT);
@@ -46,14 +46,14 @@ void Mega2560Eth::SetupW5500(uint8_t max_sock_num) {
   // If there has been a crash and restart of the ATmega, I've found that the
   // networking seems to be broken, so doing a hard reset explicitly so that we
   // always act more like a power-up situation.
-  MCU_VLOG(3) << MCU_FLASHSTR("hardreset");
+  MCU_VLOG(3) << MCU_PSD("hardreset");
   Ethernet.hardreset();
 
   // For now use all of the allowed sockets. Need to have at least one UDP
   // socket, and maybe more; our UDP uses include DHCP lease & lease renewal,
   // the Alpaca discovery protocol, and possibly for time. Then we need at least
   // one TCP socket, more if we want to handle multiple simultaneous requests.
-  MCU_VLOG(3) << MCU_FLASHSTR("init");
+  MCU_VLOG(3) << MCU_PSD("init");
   Ethernet.init(max_sock_num);
 
   // Used to call Ethernet.softreset() here, in an attempt to deal with the hard
@@ -61,7 +61,7 @@ void Mega2560Eth::SetupW5500(uint8_t max_sock_num) {
   // to connect the reset W5500 reset pin to the kW5500ResetPin, an AVR GPIO
   // pin). However I found that this would sometimes hang, so not worth the
   // risk.
-  MCU_VLOG(3) << MCU_FLASHSTR("SetupW5500 Exit");
+  MCU_VLOG(3) << MCU_PSD("SetupW5500 Exit");
 }
 
 mcucore::Status IpDevice::InitializeNetworking(
@@ -72,18 +72,18 @@ mcucore::Status IpDevice::InitializeNetworking(
   Addresses addresses;
   auto status = addresses.ReadEepromEntry(eeprom_tlv, oui_prefix);
   if (!status.ok()) {
-    MCU_VLOG(2) << MCU_FLASHSTR("Error loading network addresses: ") << status;
-    MCU_VLOG(1) << MCU_FLASHSTR("Generating Ethernet and default IP addresses");
+    MCU_VLOG(2) << MCU_PSD("Error loading network addresses: ") << status;
+    MCU_VLOG(1) << MCU_PSD("Generating Ethernet and default IP addresses");
 
     // Need to generate a new address.
     addresses.GenerateAddresses(oui_prefix);
 
     status = addresses.WriteEepromEntry(eeprom_tlv);
-    MCU_DCHECK_OK(status) << MCU_FLASHSTR(
+    MCU_DCHECK_OK(status) << MCU_PSD(
         "Failed to save generated network addresses");
     if (!status.ok()) {
-      MCU_VLOG(1) << MCU_FLASHSTR("Failed to save generated network addresses")
-                  << MCU_FLASHSTR(": ") << status;
+      MCU_VLOG(1) << MCU_PSD("Failed to save generated network addresses")
+                  << MCU_PSD(": ") << status;
     }
   }
 
@@ -92,7 +92,7 @@ mcucore::Status IpDevice::InitializeNetworking(
   Ethernet.setDhcp(&dhcp);
   using_dhcp_ = Ethernet.begin(addresses.ethernet.bytes);
   if (!using_dhcp_ && false) {
-    MCU_VLOG(1) << MCU_FLASHSTR("Failed to get an address using DHCP");
+    MCU_VLOG(1) << MCU_PSD("Failed to get an address using DHCP");
     // TODO(jamessynge): First check whether there is an Ethernet cable
     // attached; if not, then we don't benefit from a retry. Instead, we can
     // check whether a cable is attached later in the main loop. This may
@@ -101,11 +101,11 @@ mcucore::Status IpDevice::InitializeNetworking(
     // for the Alpaca devices (but not the Alpaca network servers). OR just loop
     // here indefinitely, waiting for the network cable to be attached.
     Ethernet.softreset();
-    MCU_VLOG(1) << MCU_FLASHSTR("softreset complete");
+    MCU_VLOG(1) << MCU_PSD("softreset complete");
     using_dhcp_ = Ethernet.begin(addresses.ethernet.bytes);
     if (!using_dhcp_) {
-      MCU_VLOG(1) << MCU_FLASHSTR("Failed to get an address using DHCP")
-                  << MCU_FLASHSTR(" after a soft reset.");
+      MCU_VLOG(1) << MCU_PSD("Failed to get an address using DHCP")
+                  << MCU_PSD(" after a soft reset.");
     }
   }
 
@@ -119,8 +119,7 @@ mcucore::Status IpDevice::InitializeNetworking(
       return mcucore::NotFoundError(MCU_PSV("Found no networking hardware"));
     }
 
-    mcucore::LogSink() << MCU_FLASHSTR("No DHCP, using default IP ")
-                       << addresses.ip;
+    mcucore::LogSink() << MCU_PSD("No DHCP, using default IP ") << addresses.ip;
 
     // No DHCP server responded with a lease on an IP address, so we'll fallback
     // to using our randomly generated IP.
@@ -159,11 +158,11 @@ int IpDevice::MaintainDhcpLease() {
 void IpDevice::PrintNetworkAddresses() {
   EthernetAddress mac;
   Ethernet.macAddress(mac.bytes);
-  mcucore::LogSink() << MCU_FLASHSTR("MAC: ") << mac;
-  mcucore::LogSink() << MCU_FLASHSTR("IP: ") << Ethernet.localIP();
-  mcucore::LogSink() << MCU_FLASHSTR("Subnet: ") << Ethernet.subnetMask();
-  mcucore::LogSink() << MCU_FLASHSTR("Gateway: ") << Ethernet.gatewayIP();
-  mcucore::LogSink() << MCU_FLASHSTR("DNS: ") << Ethernet.dnsServerIP();
+  mcucore::LogSink() << MCU_PSD("MAC: ") << mac;
+  mcucore::LogSink() << MCU_PSD("IP: ") << Ethernet.localIP();
+  mcucore::LogSink() << MCU_PSD("Subnet: ") << Ethernet.subnetMask();
+  mcucore::LogSink() << MCU_PSD("Gateway: ") << Ethernet.gatewayIP();
+  mcucore::LogSink() << MCU_PSD("DNS: ") << Ethernet.dnsServerIP();
 }
 
 }  // namespace mcunet

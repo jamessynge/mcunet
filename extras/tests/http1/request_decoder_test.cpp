@@ -1112,7 +1112,7 @@ TEST(RequestDecoderTest, StopDecodingFullRequest) {
               << "\n            stop_on=" << stop_on << "\n";
     int remaining_events = stop_on;
     MockRequestDecoderListener rdl;
-    auto ready_to_call_stop_decoding = [&rdl, &remaining_events]() -> bool {
+    auto ready_to_call_stop_decoding = [&remaining_events]() -> bool {
       EXPECT_GT(remaining_events, 0);
       return --remaining_events == 0;
     };

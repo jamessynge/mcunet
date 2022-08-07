@@ -15,7 +15,7 @@ mcucore::Status WriteAddressesToRegion(mcucore::EepromRegion& region,
 
 mcucore::Status Addresses::ReadEepromEntry(mcucore::EepromTlv& eeprom_tlv,
                                            const OuiPrefix* oui_prefix) {
-  MCU_VLOG(4) << MCU_FLASHSTR("Addresses::ReadEepromEntry");
+  MCU_VLOG(4) << MCU_PSD("Addresses::ReadEepromEntry");
   MCU_ASSIGN_OR_RETURN(auto region, eeprom_tlv.FindEntry(GetAddressesTag()));
   MCU_RETURN_IF_ERROR(ReadFromRegion(region));
   if (oui_prefix && !ethernet.HasOuiPrefix(*oui_prefix)) {
@@ -29,7 +29,7 @@ mcucore::Status Addresses::ReadEepromEntry(mcucore::EepromTlv& eeprom_tlv,
 
 mcucore::Status Addresses::WriteEepromEntry(
     mcucore::EepromTlv& eeprom_tlv) const {
-  MCU_VLOG(4) << MCU_FLASHSTR("Addresses::WriteEepromEntry");
+  MCU_VLOG(4) << MCU_PSD("Addresses::WriteEepromEntry");
   return eeprom_tlv.WriteEntryToCursor(GetAddressesTag(), 4 + 6,
                                        WriteAddressesToRegion, *this);
 }

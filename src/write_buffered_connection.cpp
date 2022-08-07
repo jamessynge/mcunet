@@ -16,14 +16,14 @@ WriteBufferedConnection::WriteBufferedConnection(uint8_t *write_buffer,
 }
 
 WriteBufferedConnection::~WriteBufferedConnection() {
-  MCU_VLOG(9) << MCU_FLASHSTR("WriteBufferedConnection@") << this
-              << MCU_FLASHSTR(" dtor");
+  MCU_VLOG(9) << MCU_PSD("WriteBufferedConnection@") << this
+              << MCU_PSD(" dtor");
   flush();
 }
 
 size_t WriteBufferedConnection::write(uint8_t b) {
-  MCU_VLOG(9) << MCU_FLASHSTR("WriteBufferedConnection@") << this
-              << MCU_FLASHSTR("::write b=") << mcucore::BaseHex << (b + 0);
+  MCU_VLOG(9) << MCU_PSD("WriteBufferedConnection@") << this
+              << MCU_PSD("::write b=") << mcucore::BaseHex << (b + 0);
   MCU_DCHECK_LE(write_buffer_size_, write_buffer_limit_);
   bool ok_to_write;
   if (write_buffer_size_ >= write_buffer_limit_) {
@@ -40,8 +40,8 @@ size_t WriteBufferedConnection::write(uint8_t b) {
 }
 
 size_t WriteBufferedConnection::write(const uint8_t *buf, const size_t size) {
-  MCU_VLOG(9) << MCU_FLASHSTR("WriteBufferedConnection@") << this
-              << MCU_FLASHSTR("::write sizeb=") << size;
+  MCU_VLOG(9) << MCU_PSD("WriteBufferedConnection@") << this
+              << MCU_PSD("::write sizeb=") << size;
   MCU_DCHECK_LE(write_buffer_size_, write_buffer_limit_);
   // buf should not overlap with write_buffer_.
   MCU_DCHECK((buf + size <= write_buffer_) ^
@@ -66,8 +66,8 @@ size_t WriteBufferedConnection::write(const uint8_t *buf, const size_t size) {
     size_t room = write_buffer_limit_ - write_buffer_size_;
     if (room == 0) {
       if (!FlushInternal()) {
-        MCU_VLOG(9) << MCU_FLASHSTR("WriteBufferedConnection@") << this
-                    << MCU_FLASHSTR("::write: !ok after flush");
+        MCU_VLOG(9) << MCU_PSD("WriteBufferedConnection@") << this
+                    << MCU_PSD("::write: !ok after flush");
         return 0;
       }
     }
@@ -127,8 +127,7 @@ bool WriteBufferedConnection::FlushInternal() {
   size_t result = 0;
   do {
     auto wrote = client_.write(buf, size);
-    MCU_VLOG(9) << MCU_FLASHSTR("write ") << size << MCU_FLASHSTR(", wrote ")
-                << wrote;
+    MCU_VLOG(9) << MCU_PSD("write ") << size << MCU_PSD(", wrote ") << wrote;
     MCU_DCHECK_GE(size, wrote);
     // We assume here that writing any positive number of bytes implies that
     // there was no underlying write error, so we don't ask the client whether
@@ -152,7 +151,7 @@ bool WriteBufferedConnection::FlushInternal() {
       } else {
         // We made no progress, yet there was no error. That seems wrong.
         setWriteError(kBlockedFlush);
-        MCU_VLOG(3) << MCU_FLASHSTR("no error, wrote 0");
+        MCU_VLOG(3) << MCU_PSD("no error, wrote 0");
       }
       return false;
     }
