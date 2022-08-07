@@ -154,5 +154,15 @@ std::string PercentEncodeAllChars(std::string_view input) {
   return result;
 }
 
+std::vector<std::string> GenerateInvalidPercentEncodedChar() {
+  std::vector<std::string> result;
+  for (const char c :
+       AllCharsExcept([](char c) -> bool { return isxdigit(c); })) {
+    result.push_back(std::string({'%', '0', c}));
+    result.push_back(std::string({'%', c, '0'}));
+  }
+  return result;
+}
+
 }  // namespace test
 }  // namespace mcunet

@@ -28,9 +28,19 @@ enum class EEvent : uint_fast8_t {
   // of the path.
   kPathSeparator,
 
-  // Have reached the end of the path. There may be a query after the path, in
-  // which case EPartialToken::kQueryString events will be reported.
+  // Matched the end of a request target's path, with no query string after the
+  // path.
   kPathEnd,
+
+  // Matched the question mark between the request path and the query string;
+  // note that the query string might be empty. If you don't want the query
+  // string to be decoded into parameters, you'll need to call
+  // SkipQueryStringDecoding().
+
+  kPathEndQueryStart,
+
+  // Matched the ampersand between two query string params.
+  kParamSeparator,
 
   // Matched "HTTP/1.1" at the end of the request's start line. No other version
   // is currently supported.
@@ -41,7 +51,7 @@ enum class EEvent : uint_fast8_t {
 };
 
 // For decoding events where we've have the whole string that makes up the named
-// entity.
+// entity in the input buffer provided to the decoder.
 enum class EToken : uint_fast8_t {
   // The HTTP method's name (e.g. GET or DELETE). We don't support decoding of
   // HTTP methods that are longer than the largest string buffer allowed by the
@@ -51,6 +61,13 @@ enum class EToken : uint_fast8_t {
   // A path segment is the the portion between two forward slashes in the path.
   kPathSegment,
 
+  // Matched a parameter name within a query string. It is possible that it will
+  // not be followed by a value.
+  kParamName,
+
+  // Matched a parameter value within a query string.
+  kParamValue,
+
   // The name of a header (e.g. "Content-Type");
   kHeaderName,
 
@@ -58,20 +75,26 @@ enum class EToken : uint_fast8_t {
   kHeaderValue,
 };
 
-// For decoding events where we've got some, and possibly all, of the value of
-// the named entity in a StringView. This is restricted to the cases where the
-// length of the token is greater than the maximum size of the input buffer
-// passed to RequestDecoder::DecodeBuffer.
+// For decoding events where we've don't necessarily have all of the the named
+// entity in the input buffer provided to the decoder.
 enum class EPartialToken : uint_fast8_t {
   // A path segment is the the portion between two forward slashes in the
   // path.
   kPathSegment,
 
-  // The query string, i.e. following a request's path. We don't try to force
-  // the buffering of the entire query string, so we don't have a corresponding
-  // EToken enumerator. We make this choice because the query string requires a
-  // further decoder.
-  kQueryString,
+  // Matched a parameter name within a query string. It is possible that it will
+  // not be followed by a value.
+  kParamName,
+
+  // Matched a parameter value within a query string.
+  kParamValue,
+
+  // The raw query string, without any decoding of percent-encoded characters,
+  // nor any identification of delimiters between parameter names and values. We
+  // don't try to force the buffering of the entire query string, so we don't
+  // have a corresponding EToken enumerator. We make this choice because the
+  // query string requires a further decoder.
+  kRawQueryString,
 
   // The name of a header (e.g. "Content-Type");
   kHeaderName,

@@ -64,11 +64,21 @@ struct BaseListenerCallbackData {
   // Returns a view of the data passed into RequestDecoder::DecodeBuffer.
   mcucore::StringView GetFullDecoderInput() const;
 
+ protected:
+  // Switch out of the mode where we decode the query string. The decoder will
+  // instead pass the query string (if any) to the listener without decoding it
+  // into parameter names and values, nor with any decoding of percent-encoded
+  // characters. It is only valid to call this method when a kPathEndQueryStart
+  // event is being handled by the listener.
+  void SkipQueryStringDecoding() const;
+
  private:
   const ActiveDecodingState& state;
 };
 
 struct OnEventData : BaseListenerCallbackData {
+  using BaseListenerCallbackData::SkipQueryStringDecoding;
+
   EEvent event;
 };
 
@@ -157,9 +167,17 @@ bool IsMethodChar(const char c);
 
 // Match characters allowed in a path segment.
 bool IsPChar(const char c);
+bool IsPCharExceptPercent(const char c);
 
 // Match characters allowed in a query string.
 bool IsQueryChar(const char c);
+
+// Match characters allowed in the parameter name of a query string, excluding
+// percent and plus, which are handled separately.
+bool IsParamNameCharExceptPercentAndPlus(const char c);
+
+// Match characters allowed in the parameter value of a query string.
+bool IsParamValueCharExceptPercentAndPlus(const char c);
 
 // Match characters allowed in a token (e.g. a header name).
 bool IsTokenChar(const char c);

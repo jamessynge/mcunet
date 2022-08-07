@@ -72,9 +72,26 @@ void MockRequestDecoderListener::OnUnexpectedCallStopDecoding() {
 
 void ExpectEvent(MockRequestDecoderListener& rdl, const EEvent event) {
   EXPECT_CALL(rdl, OnEvent(IsEvent(event)))
-      .WillOnce(
-          [](const OnEventData& data) { LOG(INFO) << "Expected OnEvent"; })
+      .WillOnce([](const OnEventData& data) {
+        LOG(INFO) << "Expected OnEvent " << data.event;
+      })
       .RetiresOnSaturation();
+}
+
+// This is a special case of ExpectEvent(rdl, EEvent::kPathEndQueryStart).
+void ExpectQueryStart(MockRequestDecoderListener& rdl,
+                      bool skip_query_string_decoding) {
+  if (skip_query_string_decoding) {
+    EXPECT_CALL(rdl, OnEvent(IsEvent(EEvent::kPathEndQueryStart)))
+        .WillOnce([](const OnEventData& data) {
+          LOG(INFO)
+              << "Expected kPathEndQueryStart, skipping query string decoding";
+          data.SkipQueryStringDecoding();
+        })
+        .RetiresOnSaturation();
+  } else {
+    ExpectEvent(rdl, EEvent::kPathEndQueryStart);
+  }
 }
 
 void ExpectCompleteText(MockRequestDecoderListener& rdl, const EToken token,

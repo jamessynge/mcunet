@@ -13,6 +13,13 @@ namespace test {
 
 class MockRequestDecoderListener : public RequestDecoderListener {
  public:
+  explicit MockRequestDecoderListener(
+      bool on_unexpected_call_stop_decoding = true) {
+    if (on_unexpected_call_stop_decoding) {
+      OnUnexpectedCallStopDecoding();
+    }
+  }
+
   // If any unexpected call occurs, stop decoding.
   void OnUnexpectedCallStopDecoding();
 
@@ -32,6 +39,10 @@ void ExpectCompleteText(MockRequestDecoderListener& rdl, EToken token,
 void ExpectPartialTextMatching(MockRequestDecoderListener& rdl,
                                EPartialToken token, std::string expected_text);
 void ExpectError(MockRequestDecoderListener& rdl, std::string expected_message);
+
+// This is a special case of ExpectEvent(rdl, EEvent::kPathEndQueryStart).
+void ExpectQueryStart(MockRequestDecoderListener& rdl,
+                      bool skip_query_string_decoding);
 
 }  // namespace test
 }  // namespace http1

@@ -45,6 +45,10 @@ std::string PercentEncodeChar(char c);
 // Returns a string with every character in `input` percent-encoded.
 std::string PercentEncodeAllChars(std::string_view input);
 
+// Returns a set of invalid percent-encoded chars, where one of the two
+// characters following the percent is not a hexadecimal digit.
+std::vector<std::string> GenerateInvalidPercentEncodedChar();
+
 }  // namespace test
 }  // namespace mcunet
 

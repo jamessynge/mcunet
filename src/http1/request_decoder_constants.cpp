@@ -20,6 +20,10 @@ const __FlashStringHelper* ToFlashStringHelper(EEvent v) {
       return MCU_FLASHSTR("PathSeparator");
     case EEvent::kPathEnd:
       return MCU_FLASHSTR("PathEnd");
+    case EEvent::kPathEndQueryStart:
+      return MCU_FLASHSTR("PathEndQueryStart");
+    case EEvent::kParamSeparator:
+      return MCU_FLASHSTR("ParamSeparator");
     case EEvent::kHttpVersion1_1:
       return MCU_FLASHSTR("HttpVersion1_1");
     case EEvent::kHeadersEnd:
@@ -36,6 +40,12 @@ const __FlashStringHelper* ToFlashStringHelper(EEvent v) {
   if (v == EEvent::kPathEnd) {
     return MCU_FLASHSTR("PathEnd");
   }
+  if (v == EEvent::kPathEndQueryStart) {
+    return MCU_FLASHSTR("PathEndQueryStart");
+  }
+  if (v == EEvent::kParamSeparator) {
+    return MCU_FLASHSTR("ParamSeparator");
+  }
   if (v == EEvent::kHttpVersion1_1) {
     return MCU_FLASHSTR("HttpVersion1_1");
   }
@@ -46,11 +56,13 @@ const __FlashStringHelper* ToFlashStringHelper(EEvent v) {
 #else   // Use flash string table.
   static MCU_FLASH_STRING_TABLE(
       flash_string_table,
-      MCU_FLASHSTR("PathStart"),       // 0: kPathStart
-      MCU_FLASHSTR("PathSeparator"),   // 1: kPathSeparator
-      MCU_FLASHSTR("PathEnd"),         // 2: kPathEnd
-      MCU_FLASHSTR("HttpVersion1_1"),  // 3: kHttpVersion1_1
-      MCU_FLASHSTR("HeadersEnd"),      // 4: kHeadersEnd
+      MCU_FLASHSTR("PathStart"),          // 0: kPathStart
+      MCU_FLASHSTR("PathSeparator"),      // 1: kPathSeparator
+      MCU_FLASHSTR("PathEnd"),            // 2: kPathEnd
+      MCU_FLASHSTR("PathEndQueryStart"),  // 3: kPathEndQueryStart
+      MCU_FLASHSTR("ParamSeparator"),     // 4: kParamSeparator
+      MCU_FLASHSTR("HttpVersion1_1"),     // 5: kHttpVersion1_1
+      MCU_FLASHSTR("HeadersEnd"),         // 6: kHeadersEnd
   );
   return mcucore::LookupFlashStringForDenseEnum<uint_fast8_t>(
       flash_string_table, EEvent::kPathStart, EEvent::kHeadersEnd, v);
@@ -64,6 +76,10 @@ const __FlashStringHelper* ToFlashStringHelper(EToken v) {
       return MCU_FLASHSTR("HttpMethod");
     case EToken::kPathSegment:
       return MCU_FLASHSTR("PathSegment");
+    case EToken::kParamName:
+      return MCU_FLASHSTR("ParamName");
+    case EToken::kParamValue:
+      return MCU_FLASHSTR("ParamValue");
     case EToken::kHeaderName:
       return MCU_FLASHSTR("HeaderName");
     case EToken::kHeaderValue:
@@ -77,6 +93,12 @@ const __FlashStringHelper* ToFlashStringHelper(EToken v) {
   if (v == EToken::kPathSegment) {
     return MCU_FLASHSTR("PathSegment");
   }
+  if (v == EToken::kParamName) {
+    return MCU_FLASHSTR("ParamName");
+  }
+  if (v == EToken::kParamValue) {
+    return MCU_FLASHSTR("ParamValue");
+  }
   if (v == EToken::kHeaderName) {
     return MCU_FLASHSTR("HeaderName");
   }
@@ -88,8 +110,10 @@ const __FlashStringHelper* ToFlashStringHelper(EToken v) {
   static MCU_FLASH_STRING_TABLE(flash_string_table,
                                 MCU_FLASHSTR("HttpMethod"),   // 0: kHttpMethod
                                 MCU_FLASHSTR("PathSegment"),  // 1: kPathSegment
-                                MCU_FLASHSTR("HeaderName"),   // 2: kHeaderName
-                                MCU_FLASHSTR("HeaderValue"),  // 3: kHeaderValue
+                                MCU_FLASHSTR("ParamName"),    // 2: kParamName
+                                MCU_FLASHSTR("ParamValue"),   // 3: kParamValue
+                                MCU_FLASHSTR("HeaderName"),   // 4: kHeaderName
+                                MCU_FLASHSTR("HeaderValue"),  // 5: kHeaderValue
   );
   return mcucore::LookupFlashStringForDenseEnum<uint_fast8_t>(
       flash_string_table, EToken::kHttpMethod, EToken::kHeaderValue, v);
@@ -101,8 +125,12 @@ const __FlashStringHelper* ToFlashStringHelper(EPartialToken v) {
   switch (v) {
     case EPartialToken::kPathSegment:
       return MCU_FLASHSTR("PathSegment");
-    case EPartialToken::kQueryString:
-      return MCU_FLASHSTR("QueryString");
+    case EPartialToken::kParamName:
+      return MCU_FLASHSTR("ParamName");
+    case EPartialToken::kParamValue:
+      return MCU_FLASHSTR("ParamValue");
+    case EPartialToken::kRawQueryString:
+      return MCU_FLASHSTR("RawQueryString");
     case EPartialToken::kHeaderName:
       return MCU_FLASHSTR("HeaderName");
     case EPartialToken::kHeaderValue:
@@ -113,8 +141,14 @@ const __FlashStringHelper* ToFlashStringHelper(EPartialToken v) {
   if (v == EPartialToken::kPathSegment) {
     return MCU_FLASHSTR("PathSegment");
   }
-  if (v == EPartialToken::kQueryString) {
-    return MCU_FLASHSTR("QueryString");
+  if (v == EPartialToken::kParamName) {
+    return MCU_FLASHSTR("ParamName");
+  }
+  if (v == EPartialToken::kParamValue) {
+    return MCU_FLASHSTR("ParamValue");
+  }
+  if (v == EPartialToken::kRawQueryString) {
+    return MCU_FLASHSTR("RawQueryString");
   }
   if (v == EPartialToken::kHeaderName) {
     return MCU_FLASHSTR("HeaderName");
@@ -124,11 +158,14 @@ const __FlashStringHelper* ToFlashStringHelper(EPartialToken v) {
   }
   return nullptr;
 #else   // Use flash string table.
-  static MCU_FLASH_STRING_TABLE(flash_string_table,
-                                MCU_FLASHSTR("PathSegment"),  // 0: kPathSegment
-                                MCU_FLASHSTR("QueryString"),  // 1: kQueryString
-                                MCU_FLASHSTR("HeaderName"),   // 2: kHeaderName
-                                MCU_FLASHSTR("HeaderValue"),  // 3: kHeaderValue
+  static MCU_FLASH_STRING_TABLE(
+      flash_string_table,
+      MCU_FLASHSTR("PathSegment"),     // 0: kPathSegment
+      MCU_FLASHSTR("ParamName"),       // 1: kParamName
+      MCU_FLASHSTR("ParamValue"),      // 2: kParamValue
+      MCU_FLASHSTR("RawQueryString"),  // 3: kRawQueryString
+      MCU_FLASHSTR("HeaderName"),      // 4: kHeaderName
+      MCU_FLASHSTR("HeaderValue"),     // 5: kHeaderValue
   );
   return mcucore::LookupFlashStringForDenseEnum<uint_fast8_t>(
       flash_string_table, EPartialToken::kPathSegment,
@@ -266,6 +303,10 @@ std::ostream& operator<<(std::ostream& os, EEvent v) {
       return os << "PathSeparator";
     case EEvent::kPathEnd:
       return os << "PathEnd";
+    case EEvent::kPathEndQueryStart:
+      return os << "PathEndQueryStart";
+    case EEvent::kParamSeparator:
+      return os << "ParamSeparator";
     case EEvent::kHttpVersion1_1:
       return os << "HttpVersion1_1";
     case EEvent::kHeadersEnd:
@@ -280,6 +321,10 @@ std::ostream& operator<<(std::ostream& os, EToken v) {
       return os << "HttpMethod";
     case EToken::kPathSegment:
       return os << "PathSegment";
+    case EToken::kParamName:
+      return os << "ParamName";
+    case EToken::kParamValue:
+      return os << "ParamValue";
     case EToken::kHeaderName:
       return os << "HeaderName";
     case EToken::kHeaderValue:
@@ -292,8 +337,12 @@ std::ostream& operator<<(std::ostream& os, EPartialToken v) {
   switch (v) {
     case EPartialToken::kPathSegment:
       return os << "PathSegment";
-    case EPartialToken::kQueryString:
-      return os << "QueryString";
+    case EPartialToken::kParamName:
+      return os << "ParamName";
+    case EPartialToken::kParamValue:
+      return os << "ParamValue";
+    case EPartialToken::kRawQueryString:
+      return os << "RawQueryString";
     case EPartialToken::kHeaderName:
       return os << "HeaderName";
     case EPartialToken::kHeaderValue:

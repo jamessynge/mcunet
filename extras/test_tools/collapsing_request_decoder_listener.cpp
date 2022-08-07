@@ -28,6 +28,9 @@ void CollapsingRequestDecoderListener::OnEvent(const OnEventData& data) {
 
 void CollapsingRequestDecoderListener::OnCompleteText(
     const OnCompleteTextData& data) {
+  // When we get the complete text of the entity, then exactly that text should
+  // be in the input buffer.
+  EXPECT_TRUE(data.GetFullDecoderInput().contains(data.text));
   if (IsNotAccumulating(data)) {
     rdl_.OnCompleteText(data);
   }
@@ -35,7 +38,7 @@ void CollapsingRequestDecoderListener::OnCompleteText(
 
 void CollapsingRequestDecoderListener::OnPartialText(
     const OnPartialTextData& data) {
-  if (data.token == EPartialToken::kQueryString) {
+  if (data.token == EPartialToken::kRawQueryString) {
     if (IsNotAccumulating(data)) {
       rdl_.OnPartialText(data);
     }
@@ -76,17 +79,19 @@ void CollapsingRequestDecoderListener::OnPartialText(
   if (text_.size() <= kMaxSize) {
     OnCompleteTextData complete_data(data);
     switch (data.token) {
-      case EPartialToken::kPathSegment:
-        complete_data.token = EToken::kPathSegment;
-        break;
-      case EPartialToken::kHeaderName:
-        complete_data.token = EToken::kHeaderName;
-        break;
-      case EPartialToken::kHeaderValue:
-        complete_data.token = EToken::kHeaderValue;
-        break;
-      case EPartialToken::kQueryString:
-        ADD_FAILURE() << "Unexpectedly accumulating data for a kQueryString";
+#define PARTIAL_TO_FULL_TOKEN(NAME)     \
+  case EPartialToken::NAME:             \
+    complete_data.token = EToken::NAME; \
+    break;
+
+      PARTIAL_TO_FULL_TOKEN(kPathSegment);
+      PARTIAL_TO_FULL_TOKEN(kParamName);
+      PARTIAL_TO_FULL_TOKEN(kParamValue);
+      PARTIAL_TO_FULL_TOKEN(kHeaderName);
+      PARTIAL_TO_FULL_TOKEN(kHeaderValue);
+
+      case EPartialToken::kRawQueryString:
+        ADD_FAILURE() << "Unexpectedly accumulating data for a kRawQueryString";
         return;
     }
     std::string copy = text_;
