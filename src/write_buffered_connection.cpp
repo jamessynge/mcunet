@@ -41,7 +41,7 @@ size_t WriteBufferedConnection::write(uint8_t b) {
 
 size_t WriteBufferedConnection::write(const uint8_t *buf, const size_t size) {
   MCU_VLOG(9) << MCU_PSD("WriteBufferedConnection@") << this
-              << MCU_PSD("::write sizeb=") << size;
+              << MCU_PSD("::write") << MCU_NAME_VAL(size);
   MCU_DCHECK_LE(write_buffer_size_, write_buffer_limit_);
   // buf should not overlap with write_buffer_.
   MCU_DCHECK((buf + size <= write_buffer_) ^
@@ -127,7 +127,7 @@ bool WriteBufferedConnection::FlushInternal() {
   size_t result = 0;
   do {
     auto wrote = client_.write(buf, size);
-    MCU_VLOG(9) << MCU_PSD("write ") << size << MCU_PSD(", wrote ") << wrote;
+    MCU_VLOG(9) << MCU_PSD("flush ") << size << MCU_PSD(", wrote ") << wrote;
     MCU_DCHECK_GE(size, wrote);
     // We assume here that writing any positive number of bytes implies that
     // there was no underlying write error, so we don't ask the client whether

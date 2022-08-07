@@ -27,8 +27,10 @@ void TcpServerConnection::close() {
 
   auto socket_number = sock_num();
   auto status = PlatformNetwork::SocketStatus(sock_num_);
-  MCU_VLOG(2) << MCU_PSD("TcpServerConnection::close, sock_num=") << sock_num_
-              << MCU_PSD(", status=") << mcucore::BaseHex << status;
+  MCU_VLOG(2) << MCU_PSD("TcpServerConnection::close ")
+              << MCU_NAME_VAL(sock_num_) << mcucore::BaseHex
+              << MCU_NAME_VAL(status);
+
   if (status == SnSR::ESTABLISHED || status == SnSR::CLOSE_WAIT) {
     // We have an open connection. Make sure that any data in the write buffer
     // is sent.

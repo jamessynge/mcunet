@@ -317,8 +317,8 @@ void ServerSocket::DetectListenerInitiatedDisconnect() {
   if (disconnect_data_.disconnected) {
     auto new_status = PlatformNetwork::SocketStatus(sock_num_);
     MCU_VLOG(2) << MCU_PSD("DetectListenerInitiatedDisconnect")
-                << mcucore::BaseHex << MCU_PSD(" last_status=") << last_status_
-                << MCU_PSD(" new_status=") << new_status;
+                << mcucore::BaseHex << MCU_NAME_VAL(last_status_)
+                << MCU_NAME_VAL(new_status);
     last_status_ = new_status;
   }
 }
@@ -333,8 +333,8 @@ void ServerSocket::DetectCloseTimeout() {
 }
 
 void ServerSocket::CloseHardwareSocket() {
-  MCU_VLOG(2) << MCU_PSD("CloseHardwareSocket") << MCU_PSD(" last_status=")
-              << mcucore::BaseHex << last_status_;
+  MCU_VLOG(2) << MCU_PSD("CloseHardwareSocket") << mcucore::BaseHex
+              << MCU_NAME_VAL(last_status_);
   PlatformNetwork::CloseSocket(sock_num_);
   last_status_ = PlatformNetwork::SocketStatus(sock_num_);
   MCU_DCHECK_EQ(last_status_, SnSR::CLOSED);

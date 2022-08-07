@@ -121,8 +121,8 @@ bool PlatformNetwork::InitializeTcpListenerSocket(uint8_t sock_num,
                   << tcp_port;
     }
   } else {
-    MCU_VLOG(1) << MCU_PSD("Socket ") << sock_num
-                << MCU_PSD(" not closed; status=") << status;
+    MCU_VLOG(1) << MCU_PSD("Not closed:") << MCU_NAME_VAL(sock_num)
+                << MCU_NAME_VAL(status);
   }
   return false;
 #endif  // MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
