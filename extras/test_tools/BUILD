@@ -14,7 +14,6 @@ cc_library(
     hdrs = ["collapsing_request_decoder_listener.h"],
     deps = [
         ":string_utils",
-        "//absl/log:check",
         "//googletest:gunit_headers",
         "//mcucore/extras/test_tools:string_view_utils",
         "//mcucore/src:string_view",
