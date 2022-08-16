@@ -7,7 +7,7 @@ cc_binary(
         "//mcucore/extras/host/arduino",
         "//mcucore/extras/host/arduino:arduino_main",
         "//mcucore/src:McuCore",
-        "//mcucore/src:eeprom_tlv",
+        "//mcucore/src/eeprom:eeprom_tlv",
         "//mcunet/extras/host/ethernet5500",
         "//mcunet/src:mcu_net",
     ],

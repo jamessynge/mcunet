@@ -13,7 +13,7 @@ cc_test(
     deps = [
         "//absl/strings",
         "//googletest:gunit_main",
-        "//mcucore/src:string_view",
+        "//mcucore/src/strings:string_view",
         "//mcunet/extras/test_tools:collapsing_request_decoder_listener",
         "//mcunet/extras/test_tools:mock_request_decoder_listener",
         "//mcunet/extras/test_tools:string_utils",

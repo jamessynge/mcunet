@@ -15,13 +15,13 @@ cc_library(
         ":eeprom_tags",
         ":ethernet_address",
         ":ip_address",
-        "//mcucore/src:eeprom_region",
-        "//mcucore/src:eeprom_tlv",
-        "//mcucore/src:logging",
-        "//mcucore/src:o_print_stream",
-        "//mcucore/src:progmem_string_view",
-        "//mcucore/src:status",
-        "//mcucore/src:status_or",
+        "//mcucore/src/eeprom:eeprom_region",
+        "//mcucore/src/eeprom:eeprom_tlv",
+        "//mcucore/src/log",
+        "//mcucore/src/print:o_print_stream",
+        "//mcucore/src/status",
+        "//mcucore/src/status:status_or",
+        "//mcucore/src/strings:progmem_string_view",
     ],
 )
 
@@ -40,8 +40,8 @@ cc_library(
     srcs = ["disconnect_data.cc"],
     hdrs = ["disconnect_data.h"],
     deps = [
-        "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
+        "//mcucore/src/log",
     ],
 )
 
@@ -49,7 +49,7 @@ cc_library(
     name = "eeprom_tags",
     srcs = ["eeprom_tags.cc"],
     hdrs = ["eeprom_tags.h"],
-    deps = ["//mcucore/src:eeprom_tag"],
+    deps = ["//mcucore/src/eeprom:eeprom_tag"],
 )
 
 cc_library(
@@ -57,13 +57,13 @@ cc_library(
     srcs = ["ethernet_address.cc"],
     hdrs = ["ethernet_address.h"],
     deps = [
-        "//mcucore/src:eeprom_region",
-        "//mcucore/src:hex_escape",
-        "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
-        "//mcucore/src:progmem_string_data",
-        "//mcucore/src:progmem_string_view",
-        "//mcucore/src:status",
+        "//mcucore/src/eeprom:eeprom_region",
+        "//mcucore/src/log",
+        "//mcucore/src/print:hex_escape",
+        "//mcucore/src/status",
+        "//mcucore/src/strings:progmem_string_data",
+        "//mcucore/src/strings:progmem_string_view",
     ],
 )
 
@@ -73,11 +73,11 @@ cc_library(
     hdrs = ["ip_address.h"],
     deps = [
         ":platform_network",
-        "//mcucore/src:eeprom_region",
-        "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
-        "//mcucore/src:progmem_string_view",
-        "//mcucore/src:status",
+        "//mcucore/src/eeprom:eeprom_region",
+        "//mcucore/src/log",
+        "//mcucore/src/status",
+        "//mcucore/src/strings:progmem_string_view",
     ],
 )
 
@@ -90,11 +90,11 @@ cc_library(
         ":ethernet_address",
         ":ip_address",
         ":platform_network",
-        "//mcucore/src:eeprom_tlv",
-        "//mcucore/src:log_sink",
-        "//mcucore/src:logging",
-        "//mcucore/src:progmem_string_view",
-        "//mcucore/src:status",
+        "//mcucore/src/eeprom:eeprom_tlv",
+        "//mcucore/src/log",
+        "//mcucore/src/log:log_sink",
+        "//mcucore/src/status",
+        "//mcucore/src/strings:progmem_string_view",
     ],
 )
 
@@ -133,8 +133,8 @@ cc_library(
     hdrs = ["platform_network.h"],
     deps = [
         ":platform_network_interface",
-        "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
+        "//mcucore/src/log",
         "//mcunet/extras/host/arduino:client",
         "//mcunet/extras/host/arduino:ip_address",
         "//mcunet/extras/host/ethernet5500",
@@ -148,7 +148,7 @@ cc_library(
     textual_hdrs = ["platform_network_api.cc.inc"],
     deps = [
         ":mcunet_config",
-        "//mcucore/src:logging",
+        "//mcucore/src/log",
     ],
 )
 
@@ -161,7 +161,7 @@ cc_library(
         ":platform_network",
         ":socket_listener",
         ":tcp_server_connection",
-        "//mcucore/src:logging",
+        "//mcucore/src/log",
     ],
 )
 
@@ -182,8 +182,8 @@ cc_library(
         ":disconnect_data",
         ":platform_network",
         ":write_buffered_connection",
-        "//mcucore/src:logging",
         "//mcucore/src:mcucore_platform",
+        "//mcucore/src/log",
     ],
 )
 
@@ -193,8 +193,8 @@ cc_library(
     hdrs = ["write_buffered_connection.h"],
     deps = [
         ":connection",
-        "//mcucore/src:logging",
-        "//mcucore/src:progmem_string_data",
+        "//mcucore/src/log",
+        "//mcucore/src/strings:progmem_string_data",
         "//mcunet/extras/host/arduino:client",
     ],
 )

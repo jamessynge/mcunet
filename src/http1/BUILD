@@ -16,14 +16,14 @@ cc_library(
     hdrs = ["request_decoder.h"],
     deps = [
         ":request_decoder_constants",
-        "//mcucore/src:hex_escape",
-        "//mcucore/src:logging",
-        "//mcucore/src:print_misc",
-        "//mcucore/src:progmem_string",
-        "//mcucore/src:progmem_string_data",
-        "//mcucore/src:progmem_string_view",
-        "//mcucore/src:string_compare",
-        "//mcucore/src:string_view",
+        "//mcucore/src/log",
+        "//mcucore/src/print:hex_escape",
+        "//mcucore/src/print:print_misc",
+        "//mcucore/src/strings:progmem_string",
+        "//mcucore/src/strings:progmem_string_data",
+        "//mcucore/src/strings:progmem_string_view",
+        "//mcucore/src/strings:string_compare",
+        "//mcucore/src/strings:string_view",
     ],
 )
 
@@ -32,9 +32,9 @@ cc_library(
     srcs = ["request_decoder_constants.cc"],
     hdrs = ["request_decoder_constants.h"],
     deps = [
-        "//mcucore/src:flash_string_table",
         "//mcucore/src:mcucore_platform",
-        "//mcucore/src:print_misc",
-        "//mcucore/src:progmem_string_data",
+        "//mcucore/src/container:flash_string_table",
+        "//mcucore/src/print:print_misc",
+        "//mcucore/src/strings:progmem_string_data",
     ],
 )
