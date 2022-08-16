@@ -1,8 +1,6 @@
 #include "extras/host/ethernet5500/ethernet_client.h"
 
-#include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "mcucore/extras/test_tools/print_to_std_string.h"
 
 namespace mcunet_host {
 namespace test {

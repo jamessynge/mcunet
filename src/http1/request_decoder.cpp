@@ -4,7 +4,6 @@
 #include <ctype.h>  // pragma: keep standard include
 
 #include "http1/request_decoder_constants.h"
-#include "mcunet_config.h"
 
 // TODO(jamessynge): See if we can abstract the handling of entities where we
 // use FindFirstNotOf(IsXChar), where IsXChar excludes some characters that are

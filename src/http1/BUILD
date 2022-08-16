@@ -24,7 +24,6 @@ cc_library(
         "//mcucore/src:progmem_string_view",
         "//mcucore/src:string_compare",
         "//mcucore/src:string_view",
-        "//mcunet/src:mcunet_config",
     ],
 )
 

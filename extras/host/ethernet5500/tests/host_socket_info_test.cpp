@@ -1,5 +1,7 @@
 #include "extras/host/ethernet5500/host_socket_info.h"
 
+// TODO(jamessynge): Write tests of HostSocketInfo.
+
 // TODO(jamessynge): Trim down the includes after writing tests.
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"

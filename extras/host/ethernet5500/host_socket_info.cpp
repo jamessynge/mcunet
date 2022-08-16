@@ -9,6 +9,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <cstring>
+
 #include "absl/log/check.h"
 #include "absl/log/log.h"
 
