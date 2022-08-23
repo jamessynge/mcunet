@@ -9,20 +9,6 @@ package(
 )
 
 cc_library(
-    name = "collapsing_request_decoder_listener",
-    srcs = ["collapsing_request_decoder_listener.cc"],
-    hdrs = ["collapsing_request_decoder_listener.h"],
-    deps = [
-        ":string_utils",
-        "//googletest:gunit_headers",
-        "//mcucore/extras/test_tools:string_view_utils",
-        "//mcucore/src/strings:string_view",
-        "//mcunet/src/http1:request_decoder",
-        "//mcunet/src/http1:request_decoder_constants",
-    ],
-)
-
-cc_library(
     name = "fake_platform_network",
     hdrs = ["fake_platform_network.h"],
     deps = ["//mcunet/src:platform_network_interface"],
@@ -79,20 +65,6 @@ cc_library(
 )
 
 cc_library(
-    name = "mock_request_decoder_listener",
-    srcs = ["mock_request_decoder_listener.cc"],
-    hdrs = ["mock_request_decoder_listener.h"],
-    deps = [
-        "//googletest:gunit_headers",
-        "//mcucore/extras/test_tools:progmem_string_utils",
-        "//mcucore/extras/test_tools:string_view_utils",
-        "//mcucore/src/strings:string_view",
-        "//mcunet/src/http1:request_decoder",
-        "//mcunet/src/http1:request_decoder_constants",
-    ],
-)
-
-cc_library(
     name = "mock_socket_listener",
     hdrs = ["mock_socket_listener.h"],
     deps = [
@@ -118,18 +90,5 @@ cc_test(
     deps = [
         ":string_io_stream_impl",
         "//googletest:gunit_main",
-    ],
-)
-
-cc_library(
-    name = "string_utils",
-    srcs = ["string_utils.cc"],
-    hdrs = ["string_utils.h"],
-    deps = [
-        "//absl/log",
-        "//absl/log:check",
-        "//absl/strings",
-        "//mcucore/src/print:hex_escape",
-        "//mcucore/src/strings:string_view",
     ],
 )
