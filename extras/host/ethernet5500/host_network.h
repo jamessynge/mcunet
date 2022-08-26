@@ -3,6 +3,8 @@
 
 // HostNetwork provides an implementation of PlatformNetworkInterface based
 // (mostly?) on the Posix Sockets API.
+//
+// Author: james.synge@gmail.com
 
 #include <memory>
 

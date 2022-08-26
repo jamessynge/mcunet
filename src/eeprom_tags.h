@@ -3,6 +3,8 @@
 
 // Provides function(s) for returning the tag(s) used to identify EEPROM entries
 // owned by McuNet.
+//
+// Author: james.synge@gmail.com
 
 #include <McuCore.h>
 

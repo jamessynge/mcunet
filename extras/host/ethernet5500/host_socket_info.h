@@ -9,6 +9,8 @@
 // QUESTION: Should we support AF_UNIX here, either instead of AF_INET, or in
 // addition to? Since the purpose is for testing, AF_UNIX should be sufficient,
 // but maybe it will be convenient to be a fully fledged network server.
+//
+// Author: james.synge@gmail.com
 
 #include <stddef.h>
 #include <stdint.h>

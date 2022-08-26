@@ -3,6 +3,8 @@
 
 // Just enough of EthernetClient for Tiny Alpaca Server to compile on host,
 // maybe to be a TCP server.
+//
+// Author: james.synge@gmail.com
 
 #include <stddef.h>
 #include <stdint.h>

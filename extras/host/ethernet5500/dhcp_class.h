@@ -4,6 +4,8 @@
 // Incomplete declaration/implementation of Ethernet5500's DhcpClass. It is used
 // in the embedded environment to lease an IP address for the device, etc. On
 // the host it does nothing.
+//
+// Author: james.synge@gmail.com
 
 #define DHCP_CHECK_NONE (0)
 #define DHCP_CHECK_RENEW_FAIL (1)

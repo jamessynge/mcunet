@@ -3,6 +3,8 @@
 
 // DisconnectData is used to whether and when when we detected or initiated the
 // close of a connection.
+//
+// Author: james.synge@gmail.com
 
 #include <McuCore.h>
 

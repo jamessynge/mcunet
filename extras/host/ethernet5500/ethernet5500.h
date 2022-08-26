@@ -3,6 +3,8 @@
 
 // Just enough of Ethernet5500's classes for Tiny Alpaca Server to compile on
 // host, maybe to be a TCP & UDP server.
+//
+// Author: james.synge@gmail.com
 
 #include "extras/host/arduino/ip_address.h"            // IWYU pragma: export
 #include "extras/host/ethernet5500/dhcp_class.h"       // IWYU pragma: export

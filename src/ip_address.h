@@ -10,6 +10,8 @@
 // Arduino name in namespace and capitalization for... reasons. If really
 // necessary, it could be called IpAddr, InetAddress, InetAddr or
 // InternetAddress.
+//
+// Author: james.synge@gmail.com
 
 #include <McuCore.h>
 

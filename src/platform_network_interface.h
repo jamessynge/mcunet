@@ -4,6 +4,8 @@
 // PlatformNetworkInterface is used to provide the non-embedded implementation
 // of PlatformNetwork, allowing mocking for tests, and a full host networking
 // implementation.
+//
+// Author: james.synge@gmail.com
 
 #include "mcunet_config.h"
 

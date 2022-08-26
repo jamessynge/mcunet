@@ -3,6 +3,8 @@
 
 // Provides an implementation of WriteBufferedConnection which can be used for
 // testing code that uses WriteBufferedConnection or Connection.
+//
+// Author: james.synge@gmail.com
 
 #include <stddef.h>
 #include <stdint.h>

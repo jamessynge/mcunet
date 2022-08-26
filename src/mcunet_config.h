@@ -2,6 +2,8 @@
 #define MCUNET_SRC_MCUNET_CONFIG_H_
 
 // Configure McuNet features.
+//
+// Author: james.synge@gmail.com
 
 #include <McuCore.h>
 

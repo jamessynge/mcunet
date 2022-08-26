@@ -10,6 +10,8 @@
 // used in the methods being mocked. Even though IWYU would call for more
 // headers to be included, I've chosen here to limit the includes in headers
 // like this to gmock.h and the header(s) of the class(es) being mocked.
+//
+// Author: james.synge@gmail.com
 
 #include <stddef.h>
 #include <stdint.h>

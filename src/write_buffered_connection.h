@@ -11,6 +11,8 @@
 // measured the optimal size of the buffer, nor have I investigated performing
 // any kind of async SPI... it doesn't seem necessary for Tiny Alpaca Server and
 // would require more buffer management.
+//
+// Author: james.synge@gmail.com
 
 #include <Client.h>
 #include <stddef.h>

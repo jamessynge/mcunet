@@ -2,6 +2,8 @@
 #define MCUNET_EXTRAS_HOST_ETHERNET5500_ETHERNET_UDP_H_
 
 // Incomplete declaration/implementation of Ethernet5500's EthernetUDP class.
+//
+// Author: james.synge@gmail.com
 
 #include <stddef.h>
 #include <stdint.h>
