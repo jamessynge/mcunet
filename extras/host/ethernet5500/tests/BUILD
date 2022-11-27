@@ -47,6 +47,5 @@ cc_binary(
         "//mcunet/extras/host/ethernet5500:ethernet_server",
         "//mcunet/extras/host/ethernet5500:host_network",
         "//mcunet/src:platform_network_interface",
-        "//util/debuginfo:signalsafe_addr2line_installer",
     ],
 )

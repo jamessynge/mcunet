@@ -16,10 +16,13 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#include <string>
+
 namespace mcunet_host {
 
 class HostSocketInfo {
  public:
+  // These values match the values of the W5500 socket status register.
   static constexpr uint8_t kStatusClosed = 0;
   static constexpr uint8_t kStatusListening = 0x14;
   static constexpr uint8_t kStatusCloseWait = 0x1C;
@@ -28,6 +31,9 @@ class HostSocketInfo {
   explicit HostSocketInfo(uint8_t sock_num);
   // Closes any open host socket (i.e. listener or connection).
   ~HostSocketInfo();
+
+  // Returns a string describing the instance.
+  std::string ToString() const;
 
   //////////////////////////////////////////////////////////////////////////////
   // Methods getting the status of a socket.
@@ -126,14 +132,20 @@ class HostSocketInfo {
   ssize_t Recv(uint8_t *buf, size_t len);
 
  private:
+  ssize_t RecvInternal(uint8_t *buf, size_t len, bool peek);
+
   const int sock_num_;
 
-  // IFF listening, these two are at non-default values.
+  // IFF listening, these three are at non-default values.
   int listener_socket_fd_{-1};
   uint16_t tcp_port_{0};
+  // Port number to which the requested port has been mapped.
+  uint16_t mapped_tcp_port_{0};
 
   // IFF a connection has been accepted, set to a non-default value (>= 0).
   int connection_socket_fd_{-1};
+  bool can_write_to_connection_{false};
+  bool can_read_from_connection_{false};
 };
 
 }  // namespace mcunet_host

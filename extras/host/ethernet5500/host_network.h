@@ -11,6 +11,8 @@
 #include "platform_network_interface.h"
 
 namespace mcunet_host {
+// We use the pointer-to-implementation (Pimpl) pattern to avoid polluting the
+// translation unit of any source file that includes this one.
 struct HostNetworkImpl;
 
 class HostNetwork : public mcunet::PlatformNetworkInterface {

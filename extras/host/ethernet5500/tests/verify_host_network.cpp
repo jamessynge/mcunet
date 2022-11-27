@@ -38,8 +38,8 @@ int main(int argc, char* argv[]) {
   }
 
   const auto start_time = absl::Now();
-  const auto end_time = start_time + absl::Seconds(60);
-  const auto interval = absl::Seconds(15);
+  const auto end_time = start_time + absl::Seconds(30);
+  const auto interval = absl::Seconds(5);
   auto next_time = start_time + interval;
   bool connected = false;
   absl::Time now;

@@ -97,12 +97,36 @@ cc_library(
 )
 
 cc_library(
+    name = "host_network_main",
+    srcs = ["host_network_main.cc"],
+    linkopts = [
+        # Don't complain that setup and loop aren't defined. They'll be provided
+        # by the cc_binary that links in this library, by way of the setup and
+        # loop functions in the source of the sketch (.ino file).
+        "-Wl,--undefined=setup",
+        "-Wl,--undefined=loop",
+    ],
+    deps = [
+        ":ethernet_client",
+        ":host_network",
+        "//absl/log",
+        "//base",
+        "//mcucore/extras/host/arduino:call_setup_and_loop",
+        "//mcunet/src:platform_network_interface",
+    ],
+)
+
+cc_library(
     name = "host_socket_info",
     srcs = ["host_socket_info.cc"],
     hdrs = ["host_socket_info.h"],
     deps = [
+        "//absl/flags:flag",
+        "//absl/flags:marshalling",
         "//absl/log",
         "//absl/log:check",
+        "//absl/strings",
+        "//mcucore/extras/host:posix_errno",
     ],
 )
 

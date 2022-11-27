@@ -5,10 +5,10 @@ cc_binary(
     srcs = ["TestIpDeviceSetup.ino.cc"],
     deps = [
         "//mcucore/extras/host/arduino",
-        "//mcucore/extras/host/arduino:arduino_main",
         "//mcucore/src:McuCore",
         "//mcucore/src/eeprom:eeprom_tlv",
         "//mcunet/extras/host/ethernet5500",
+        "//mcunet/extras/host/ethernet5500:host_network_main",
         "//mcunet/src:mcu_net",
     ],
 )

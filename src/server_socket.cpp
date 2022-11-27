@@ -136,13 +136,19 @@ bool ServerSocket::BeginListening() {
 // interrupt features of the W5500 to learn which sockets have state changes
 // more rapidly.
 void ServerSocket::PerformIO() {
+  MCU_VLOG(3) << MCU_PSD("ServerSocket::PerformIO");
   if (!HasSocket()) {
+    MCU_VLOG(2) << MCU_PSD("PerformIO no socket");
     return;
   }
   const auto status = PlatformNetwork::SocketStatus(sock_num_);
+  MCU_VLOG(5) << MCU_PSD("PerformIO status=") << status;
   const bool is_open = PlatformNetwork::StatusIsOpen(status);
+  MCU_VLOG(5) << MCU_PSD("PerformIO is_open=") << is_open;
   const auto past_status = last_status_;
+  MCU_VLOG(5) << MCU_PSD("PerformIO past_status=") << past_status;
   const bool was_open = PlatformNetwork::StatusIsOpen(past_status);
+  MCU_VLOG(5) << MCU_PSD("PerformIO was_open=") << was_open;
 
   last_status_ = status;
 
@@ -161,10 +167,12 @@ void ServerSocket::PerformIO() {
 
   switch (status) {
     case SnSR::CLOSED:
+      MCU_VLOG(3) << MCU_PSD("SnSR::CLOSED");
       BeginListening();
       break;
 
     case SnSR::LISTEN:
+      MCU_VLOG(3) << MCU_PSD("SnSR::LISTEN");
       VERIFY_STATUS_IS(SnSR::LISTEN, past_status);
       break;
 
@@ -177,11 +185,13 @@ void ServerSocket::PerformIO() {
       //
       // To keep the debug macros in the following states simple, we overwrite
       // last_status_ here.
+      MCU_VLOG(3) << MCU_PSD("SnSR::SYNRECV");
       VERIFY_STATUS_IS(SnSR::LISTEN, past_status);
       last_status_ = SnSR::LISTEN;
       break;
 
     case SnSR::ESTABLISHED:
+      MCU_VLOG(3) << MCU_PSD("SnSR::ESTABLISHED");
       if (!was_open) {
         VERIFY_STATUS_IS(SnSR::LISTEN, past_status)
             << MCU_PSD(" while handling ESTABLISHED");
@@ -194,6 +204,7 @@ void ServerSocket::PerformIO() {
       break;
 
     case SnSR::CLOSE_WAIT:
+      MCU_VLOG(3) << MCU_PSD("SnSR::CLOSE_WAIT");
       if (!was_open) {
         VERIFY_STATUS_IS(SnSR::LISTEN, past_status)
             << MCU_PSD(" while handling CLOSE_WAIT");
@@ -222,6 +233,7 @@ void ServerSocket::PerformIO() {
       // This is a transient state during setup of a TCP listener, and should
       // not be visible to us because BeginListening should make calls that
       // complete the process.
+      MCU_VLOG(3) << MCU_PSD("SnSR::INIT");
       MCU_DCHECK(false) << MCU_PSD(
                                "Socket in INIT state, incomplete LISTEN setup; "
                                "past_status is ")
