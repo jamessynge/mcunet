@@ -38,8 +38,12 @@ ServerSocket::ServerSocket(uint16_t tcp_port, ServerSocketListener &listener)
 bool ServerSocket::HasSocket() const { return sock_num_ < MAX_SOCK_NUM; }
 
 bool ServerSocket::IsConnected() const {
-  return HasSocket() &&
-         PlatformNetwork::SocketIsInTcpConnectionLifecycle(sock_num_);
+  const bool result =
+      HasSocket() &&
+      PlatformNetwork::SocketIsInTcpConnectionLifecycle(sock_num_);
+  MCU_VLOG(9) << MCU_PSD("ServerSocket#") << sock_num_
+              << MCU_PSD("::IsConnected -> ") << result;
+  return result;
 }
 
 bool ServerSocket::PickClosedSocket() {
