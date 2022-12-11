@@ -42,9 +42,9 @@ void TcpServerConnection::close() {
     }
   }
   // On the assumption that this is only called when there is a working
-  // connection at the start of a call to the listener (e.g. OnHalfClosed), we
-  // record this as a disconnect initiated by the listener so that we don't
-  // later notify the listener of a disconnect
+  // connection at the start of a call to the listener, we record this as a
+  // disconnect initiated by the listener so that we don't later notify the
+  // listener of a disconnect
   disconnect_data_.RecordDisconnect();
 }
 

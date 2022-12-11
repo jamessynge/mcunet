@@ -19,10 +19,6 @@ class EchoListener : public mcunet::ServerSocketListener {
       MCU_VLOG(1) << MCU_PSD("OnCanRead write -> ") << size;
     }
   }
-  void OnHalfClosed(mcunet::Connection& connection) override {
-    MCU_VLOG(1) << MCU_PSD("OnHalfClosed, closing the connection");
-    connection.close();
-  }
   void OnDisconnect() override { MCU_VLOG(1) << MCU_PSD("OnDisconnect"); }
 } echo_listener;  // NOLINT
 

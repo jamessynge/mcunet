@@ -14,9 +14,7 @@ namespace mcunet {
 // There is no OnCanWrite because we don't seem to need it (for now) for the
 // purposes of Tiny Alpaca Server, i.e. where we don't have long streams of data
 // to return and don't have the ability to buffer data and resume writing later
-// when there is room for more. Instead, OnHalfClosed is called multiple times
-// if the peer half-closes the socket and the SocketListener doesn't close the
-// connection when OnHalfClosed is called (i.e. on every loop).
+// when there is room for more.
 class SocketListener {
  public:
 #if !MCU_EMBEDDED_TARGET
@@ -25,28 +23,13 @@ class SocketListener {
 
   // Called when there *may* be data to read from the peer. Currently this is
   // also called by ServerSocket for existing connections.
+  // TODO(jamessynge): Consider renaming to OnPerformIo.
   virtual void OnCanRead(Connection& connection) = 0;
 
-  // Called when there is no more data to come from the client (i.e. it has half
-  // closed its socket), but this end of the connection may still write. This
-  // may not be called between OnConnect and OnDisconnect. This may be called
-  // multiple times for a single connection (i.e. because the listener hasn't
-  // yet chosen to fully close the connection, as when streaming out a reply as
-  // data becomes available).
-  //
-  // Note that while compliant routers, firewalls, etc., should support the TCP
-  // connection staying in this half-closed state for a long time (i.e. so that
-  // we can stream a response slowly), NAT devices may interpret a FIN from one
-  // peer in the connection as a sign that they connection will soon close, and
-  // will wait very little time before effectively breaking the connection by
-  // losing track of the address and port mapping.
-  virtual void OnHalfClosed(Connection& connection) = 0;
-
-  // Called when we discover that the connection has been broken by the other
-  // party (e.g. when a RST packet is received and the socket status changes to
-  // CLOSED without this application having initiated the close). This might
-  // also occur if network configuration needs to be reset, such as when the
-  // DHCP lease has expired.
+  // Called when we discover that the connection has been fully or partially
+  // closed, typically by the other party; however, this might also occur if
+  // network configuration needs to be reset, such as when the DHCP lease has
+  // expired.
   virtual void OnDisconnect() = 0;
 };
 

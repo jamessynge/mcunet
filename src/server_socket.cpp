@@ -319,12 +319,13 @@ void ServerSocket::HandleCloseWait() {
     // we've read all the data from the client, or only once we've drained those
     // buffers.
     listener_.OnCanRead(conn);
+    DetectListenerInitiatedDisconnect();
   } else {
-    listener_.OnHalfClosed(conn);
-    MCU_VLOG(2) << MCU_PSD("HandleCloseWait ") << MCU_PSD("disconnected=")
-                << disconnect_data_.disconnected;
+    MCU_VLOG(2) << MCU_PSD("HandleCloseWait closing connection.");
+    conn.close();
+    last_status_ = PlatformNetwork::SocketStatus(sock_num_);
+    listener_.OnDisconnect();
   }
-  DetectListenerInitiatedDisconnect();
 }
 
 void ServerSocket::DetectListenerInitiatedDisconnect() {
