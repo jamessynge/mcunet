@@ -1,13 +1,9 @@
 load(
-    "//mcucore/extras/dev_tools:build_config.bzl",
-    "build_config",
+    "//mcucore/extras/bazel:arduino_cc_library.bzl",
+    "arduino_cc_library",
 )
 
-package(
-    default_copts = build_config.default_copts,
-)
-
-cc_library(
+arduino_cc_library(
     name = "addresses",
     srcs = ["addresses.cc"],
     hdrs = ["addresses.h"],
@@ -25,7 +21,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arduino_cc_library(
     name = "connection",
     srcs = ["connection.cc"],
     hdrs = ["connection.h"],
@@ -35,7 +31,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arduino_cc_library(
     name = "disconnect_data",
     srcs = ["disconnect_data.cc"],
     hdrs = ["disconnect_data.h"],
@@ -45,14 +41,14 @@ cc_library(
     ],
 )
 
-cc_library(
+arduino_cc_library(
     name = "eeprom_tags",
     srcs = ["eeprom_tags.cc"],
     hdrs = ["eeprom_tags.h"],
     deps = ["//mcucore/src/eeprom:eeprom_tag"],
 )
 
-cc_library(
+arduino_cc_library(
     name = "ethernet_address",
     srcs = ["ethernet_address.cc"],
     hdrs = ["ethernet_address.h"],
@@ -67,7 +63,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arduino_cc_library(
     name = "ip_address",
     srcs = ["ip_address.cc"],
     hdrs = ["ip_address.h"],
@@ -81,7 +77,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arduino_cc_library(
     name = "ip_device",
     srcs = ["ip_device.cc"],
     hdrs = ["ip_device.h"],
@@ -98,7 +94,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arduino_cc_library(
     name = "mcu_net",
     hdrs = ["McuNet.h"],
     deps = [
@@ -119,13 +115,13 @@ cc_library(
     ],
 )
 
-cc_library(
+arduino_cc_library(
     name = "mcunet_config",
     hdrs = ["mcunet_config.h"],
     deps = ["//mcucore/src:mcucore_platform"],
 )
 
-cc_library(
+arduino_cc_library(
     name = "platform_network",
     srcs = ["platform_network.cc"],
     hdrs = ["platform_network.h"],
@@ -139,7 +135,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arduino_cc_library(
     name = "platform_network_interface",
     srcs = ["platform_network_interface.cc"],
     hdrs = ["platform_network_interface.h"],
@@ -150,7 +146,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arduino_cc_library(
     name = "server_socket",
     srcs = ["server_socket.cc"],
     hdrs = ["server_socket.h"],
@@ -163,7 +159,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arduino_cc_library(
     name = "socket_listener",
     hdrs = ["socket_listener.h"],
     deps = [
@@ -172,7 +168,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arduino_cc_library(
     name = "tcp_server_connection",
     srcs = ["tcp_server_connection.cc"],
     hdrs = ["tcp_server_connection.h"],
@@ -185,7 +181,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arduino_cc_library(
     name = "write_buffered_connection",
     srcs = ["write_buffered_connection.cc"],
     hdrs = ["write_buffered_connection.h"],

@@ -1,6 +1,11 @@
 # Sketch for testing that we can initialize the IpDevice (i.e. WIZnet W5500).
 
-cc_binary(
+load(
+    "//mcucore/extras/bazel:arduino_cc_sketch.bzl",
+    "arduino_cc_sketch",
+)
+
+arduino_cc_sketch(
     name = "TestIpDeviceSetup",
     srcs = ["TestIpDeviceSetup.ino.cc"],
     deps = [
