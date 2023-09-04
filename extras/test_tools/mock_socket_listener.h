@@ -20,6 +20,7 @@ namespace test {
 class MockSocketListener : public SocketListener {
  public:
   MOCK_METHOD(void, OnCanRead, (class mcunet::Connection &), (override));
+  MOCK_METHOD(void, OnHalfClosed, (class mcunet::Connection &), (override));
   MOCK_METHOD(void, OnDisconnect, (), (override));
 };
 
@@ -27,6 +28,7 @@ class MockServerSocketListener : public ServerSocketListener {
  public:
   // SocketListener methods:
   MOCK_METHOD(void, OnCanRead, (class mcunet::Connection &), (override));
+  MOCK_METHOD(void, OnHalfClosed, (class mcunet::Connection &), (override));
   MOCK_METHOD(void, OnDisconnect, (), (override));
 
   // ServerSocketListener methods:

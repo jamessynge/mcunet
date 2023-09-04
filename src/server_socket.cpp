@@ -38,12 +38,8 @@ ServerSocket::ServerSocket(uint16_t tcp_port, ServerSocketListener &listener)
 bool ServerSocket::HasSocket() const { return sock_num_ < MAX_SOCK_NUM; }
 
 bool ServerSocket::IsConnected() const {
-  const bool result =
-      HasSocket() &&
-      PlatformNetwork::SocketIsInTcpConnectionLifecycle(sock_num_);
-  MCU_VLOG(9) << MCU_PSD("ServerSocket#") << sock_num_
-              << MCU_PSD("::IsConnected -> ") << result;
-  return result;
+  return HasSocket() &&
+         PlatformNetwork::SocketIsInTcpConnectionLifecycle(sock_num_);
 }
 
 bool ServerSocket::PickClosedSocket() {
@@ -319,13 +315,12 @@ void ServerSocket::HandleCloseWait() {
     // we've read all the data from the client, or only once we've drained those
     // buffers.
     listener_.OnCanRead(conn);
-    DetectListenerInitiatedDisconnect();
   } else {
-    MCU_VLOG(2) << MCU_PSD("HandleCloseWait closing connection.");
-    conn.close();
-    last_status_ = PlatformNetwork::SocketStatus(sock_num_);
-    listener_.OnDisconnect();
+    listener_.OnHalfClosed(conn);
+    MCU_VLOG(2) << MCU_PSD("HandleCloseWait ") << MCU_PSD("disconnected=")
+                << disconnect_data_.disconnected;
   }
+  DetectListenerInitiatedDisconnect();
 }
 
 void ServerSocket::DetectListenerInitiatedDisconnect() {
