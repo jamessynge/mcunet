@@ -52,10 +52,6 @@ class HostSocketInfo {
   // socket, and the peer hasn't closed it from their end."
   bool IsConnected();
 
-  // Returns true if there is an open connection socket and the peer has
-  // half-closed the connection.
-  bool IsConnectionHalfClosed();
-
   // Returns true if there is an open connection socket and either there is data
   // available to be read immediately, or there isn't data but it appears that
   // the peer hasn't half-closed the connection so there may be more data in the

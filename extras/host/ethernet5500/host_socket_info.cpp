@@ -137,42 +137,6 @@ uint16_t HostSocketInfo::IsTcpListener() {
 
 bool HostSocketInfo::IsConnected() { return HaveFd(connection_socket_fd_); }
 
-bool HostSocketInfo::IsConnectionHalfClosed() {
-  if (!HaveFd(connection_socket_fd_)) {
-    LOG(WARNING) << "Socket " << sock_num_
-                 << " isn't even open, can't be half closed.";
-    return false;
-  }
-  if (!can_read_from_connection_) {
-    return true;
-  }
-
-  // See if we can peek at the next byte.
-  char c;
-  int size = recv(connection_socket_fd_, &c, 1, MSG_PEEK | MSG_DONTWAIT);
-  const auto error_number = errno;
-  VLOG(2) << "IsConnectionHalfClosed: recv from " << ToString() << " -> "
-          << size
-          << (size >= 0 ? std::string()
-                        : absl::StrCat("\nWith ", mcucore_host::ErrnoToString(
-                                                      error_number)));
-  if (size == 1) {
-    // There is data available to read right now, so not half-closed from our
-    // perspective.
-    return false;
-  } else if (size == 0) {
-    // The connection may be half-closed, may be shutdown or disconnected.
-    can_read_from_connection_ = false;
-    return true;
-  }
-  CHECK(false) << "recv from " << ToString() << " -> " << size
-               << (size >= 0 ? std::string()
-                             : absl::StrCat(
-                                   "\nWith ",
-                                   mcucore_host::ErrnoToString(error_number)));
-  return true;
-}
-
 bool HostSocketInfo::CanReadFromConnection() {
   if (!HaveFd(connection_socket_fd_)) {
     LOG(ERROR) << "Socket " << sock_num_ << " isn't open.";
@@ -197,9 +161,6 @@ uint8_t HostSocketInfo::SocketStatus() {
   } else if (IsTcpListener() && !AcceptConnection()) {
     return kStatusListening;
   } else if (IsConnected()) {
-    if (IsConnectionHalfClosed()) {
-      return kStatusCloseWait;
-    }
     return kStatusEstablished;
   }
   LOG(DFATAL) << "Unsupported status of socket " << sock_num_;

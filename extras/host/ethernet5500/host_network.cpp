@@ -81,14 +81,6 @@ bool HostNetwork::SocketIsInTcpConnectionLifecycle(uint8_t sock_num) {
   return result;
 }
 
-bool HostNetwork::SocketIsHalfClosed(uint8_t sock_num) {
-  auto *info = impl_->GetHostSocketInfo(sock_num);
-  bool result = info != nullptr && info->IsConnectionHalfClosed();
-  VLOG(2) << "HostNetwork::SocketIsHalfClosed -> "
-          << (result ? "true" : "false");
-  return result;
-}
-
 bool HostNetwork::SocketIsClosed(uint8_t sock_num) {
   auto *info = impl_->GetHostSocketInfo(sock_num);
   bool result = info != nullptr && info->IsClosed();
