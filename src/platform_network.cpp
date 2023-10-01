@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#include "w5500_enum_names.h"
+
 namespace mcunet {
 
 #if MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION
@@ -104,7 +106,7 @@ bool PlatformNetwork::InitializeTcpListenerSocket(uint8_t sock_num,
               << sock_num << MCU_PSD(", ") << tcp_port
               << MCU_PSD(") _server_port is ")
               << EthernetClass::_server_port[sock_num] << MCU_PSD(", status=")
-              << status;
+              << SnSRName(status);
   if (status == SnSR::CLOSED) {
     if (EthernetClass::_server_port[sock_num] == tcp_port ||
         EthernetClass::_server_port[sock_num] == 0) {
@@ -121,8 +123,8 @@ bool PlatformNetwork::InitializeTcpListenerSocket(uint8_t sock_num,
                   << tcp_port;
     }
   } else {
-    MCU_VLOG(1) << MCU_PSD("Not closed:") << MCU_NAME_VAL(sock_num)
-                << MCU_NAME_VAL(status);
+    MCU_VLOG(1) << MCU_PSD("Socket ") << sock_num
+                << MCU_PSD(" not closed, status=") << SnSRName(status);
   }
   return false;
 #endif  // MCU_HAS_PLATFORM_NETWORK_IMPLEMENTATION

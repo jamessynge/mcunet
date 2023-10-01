@@ -93,7 +93,6 @@ arduino_cc_library(
         "//mcucore/src/status",
         "//mcucore/src/strings:progmem_string_data",
         "//mcucore/src/strings:progmem_string_view",
-        "//mcunet/extras/host/ethernet5500:ethernet_class",
     ],
 )
 
@@ -126,12 +125,19 @@ arduino_cc_library(
 
 arduino_cc_library(
     name = "platform_network",
-    srcs = ["platform_network.cc"],
-    hdrs = ["platform_network.h"],
+    srcs = [
+        "platform_network.cc",
+        "w5500_enum_names.cc",
+    ],
+    hdrs = [
+        "platform_network.h",
+        "w5500_enum_names.h",
+    ],
     deps = [
         ":platform_network_interface",
         "//mcucore/src:mcucore_platform",
         "//mcucore/src/log",
+        "//mcucore/src/strings:progmem_string_data",
         "//mcunet/extras/host/arduino:client",
         "//mcunet/extras/host/arduino:ip_address",
         "//mcunet/extras/host/ethernet5500",
@@ -158,7 +164,6 @@ arduino_cc_library(
         ":platform_network",
         ":socket_listener",
         ":tcp_server_connection",
-        ":w5500_enum_names",
         "//mcucore/src:mcucore_platform",
         "//mcucore/src/log",
         "//mcucore/src/strings:progmem_string_data",
@@ -184,25 +189,6 @@ arduino_cc_library(
         ":write_buffered_connection",
         "//mcucore/src:mcucore_platform",
         "//mcucore/src/log",
-    ],
-)
-
-cc_library(
-    name = "w5500_enum_names",
-    srcs = ["w5500_enum_names.cc"],
-    hdrs = ["w5500_enum_names.h"],
-    deps = [
-        ":platform_network",
-        "//mcucore/src:mcucore_platform",
-        "//mcucore/src/container:flash_string_table",
-        "//mcucore/src/log",
-        "//mcucore/src/print:counting_print",
-        "//mcucore/src/print:has_print_to",
-        "//mcucore/src/print:print_misc",
-        "//mcucore/src/print:print_to_buffer",
-        "//mcucore/src/print:stream_to_print",
-        "//mcucore/src/semistd:type_traits",
-        "//mcucore/src/strings:progmem_string_data",
     ],
 )
 
