@@ -158,7 +158,9 @@ arduino_cc_library(
         ":platform_network",
         ":socket_listener",
         ":tcp_server_connection",
+        "//mcucore/src:mcucore_platform",
         "//mcucore/src/log",
+        "//mcucore/src/strings:progmem_string_data",
     ],
 )
 

@@ -136,19 +136,21 @@ bool ServerSocket::BeginListening() {
 // interrupt features of the W5500 to learn which sockets have state changes
 // more rapidly.
 void ServerSocket::PerformIO() {
-  MCU_VLOG(3) << MCU_PSD("ServerSocket::PerformIO");
+  MCU_VLOG(5) << MCU_PSD("ServerSocket::PerformIO");
   if (!HasSocket()) {
-    MCU_VLOG(2) << MCU_PSD("PerformIO no socket");
+    MCU_VLOG(4) << MCU_PSD("PerformIO no socket");
     return;
   }
   const auto status = PlatformNetwork::SocketStatus(sock_num_);
-  MCU_VLOG(5) << MCU_PSD("PerformIO status=") << status;
   const bool is_open = PlatformNetwork::StatusIsOpen(status);
-  MCU_VLOG(5) << MCU_PSD("PerformIO is_open=") << is_open;
   const auto past_status = last_status_;
-  MCU_VLOG(5) << MCU_PSD("PerformIO past_status=") << past_status;
   const bool was_open = PlatformNetwork::StatusIsOpen(past_status);
-  MCU_VLOG(5) << MCU_PSD("PerformIO was_open=") << was_open;
+
+  if (status != last_status_) {
+    MCU_VLOG(3) << MCU_PSD("socket ") << sock_num_ << MCU_PSD(" past_status=")
+                << mcucore::BaseHex << past_status << MCU_PSD(" status=")
+                << status;
+  }
 
   last_status_ = status;
 
@@ -167,20 +169,18 @@ void ServerSocket::PerformIO() {
 
   switch (status) {
     case SnSR::CLOSED:
-      MCU_VLOG(3) << MCU_PSD("SnSR::CLOSED");
       BeginListening();
       break;
 
     case SnSR::LISTEN:
-      MCU_VLOG(3) << MCU_PSD("SnSR::LISTEN");
       VERIFY_STATUS_IS(SnSR::LISTEN, past_status);
       break;
 
     case SnSR::SYNRECV:
       // This is a transient state that the chip handles (i.e. responds with a
       // SYN/ACK, waits for an ACK from the client to complete the three step
-      // TCP handshake). If that times out or a RST is recieved, then the W5500
-      // socket will transition to to closed, and we'll have to call
+      // TCP handshake). If the handshake times out or a RST is received, then
+      // the W5500 socket will transition to closed, and we'll have to call
       // BeginListening again.
       //
       // To keep the debug macros in the following states simple, we overwrite
@@ -191,7 +191,6 @@ void ServerSocket::PerformIO() {
       break;
 
     case SnSR::ESTABLISHED:
-      MCU_VLOG(3) << MCU_PSD("SnSR::ESTABLISHED");
       if (!was_open) {
         VERIFY_STATUS_IS(SnSR::LISTEN, past_status)
             << MCU_PSD(" while handling ESTABLISHED");
@@ -204,14 +203,12 @@ void ServerSocket::PerformIO() {
       break;
 
     case SnSR::CLOSE_WAIT:
-      MCU_VLOG(3) << MCU_PSD("SnSR::CLOSE_WAIT");
       if (!was_open) {
+        // Client may have opened and immediately half-closed the connection.
         VERIFY_STATUS_IS(SnSR::LISTEN, past_status)
             << MCU_PSD(" while handling CLOSE_WAIT");
         AnnounceConnected();
       } else {
-        MCU_DCHECK(was_open) << STATUS_IS_UNEXPECTED_MESSAGE(
-            "ESTABLISHED or CLOSE_WAIT", past_status, status);
         HandleCloseWait();
       }
       break;
@@ -222,18 +219,18 @@ void ServerSocket::PerformIO() {
     case SnSR::LAST_ACK:
       // Transient states after the connection is closed, but before the final
       // cleanup is complete.
-      MCU_DCHECK(was_open || PlatformNetwork::StatusIsClosing(past_status))
-          << STATUS_IS_UNEXPECTED_MESSAGE("a closing value", past_status,
-                                          status);
-
-      DetectCloseTimeout();
+      if (was_open || PlatformNetwork::StatusIsClosing(past_status)) {
+        DetectCloseTimeout();
+      } else {
+        MCU_VLOG(1) << STATUS_IS_UNEXPECTED_MESSAGE("a closing value",
+                                                    past_status, status);
+      }
       break;
 
     case SnSR::INIT:
       // This is a transient state during setup of a TCP listener, and should
       // not be visible to us because BeginListening should make calls that
       // complete the process.
-      MCU_VLOG(3) << MCU_PSD("SnSR::INIT");
       MCU_DCHECK(false) << MCU_PSD(
                                "Socket in INIT state, incomplete LISTEN setup; "
                                "past_status is ")
@@ -286,6 +283,8 @@ void ServerSocket::AnnounceConnected() {
   // TODO(jamessynge): This should be the point where disconnect_data_ is Reset,
   // not in the TcpServerConnection ctor; that would ensure that it is reset
   // only once per connection.
+
+  MCU_VLOG(3) << MCU_PSD("AnnounceConnected");
   EthernetClient client(sock_num_);
   uint8_t write_buffer[kWriteBufferSize];
   TcpServerConnection conn(write_buffer, kWriteBufferSize, client,
@@ -304,6 +303,7 @@ void ServerSocket::AnnounceCanRead() {
 }
 
 void ServerSocket::HandleCloseWait() {
+  MCU_VLOG(3) << MCU_PSD("AnnounceConnected");
   EthernetClient client(sock_num_);
   uint8_t write_buffer[kWriteBufferSize];
   TcpServerConnection conn(write_buffer, kWriteBufferSize, client,

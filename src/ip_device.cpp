@@ -36,7 +36,7 @@ void Mega2560Eth::SetupW5500(uint8_t max_sock_num) {
 
   // Configure Ethernet5500's EthernetClass instance with the pins used to
   // access the WIZnet W5500. Note that the reset pin is only used by methods
-  // Ethernet::setRstPin and Ethernet::hardreset, so if the W5500's reset pin
+  // Ethernet.setRstPin() and Ethernet.hardreset(), so if the W5500's reset pin
   // isn't connected to a pin of the microcontroller, just don't call hardreset.
   Ethernet.setRstPin(kW5500ResetPin);
   Ethernet.setCsPin(kW5500ChipSelectPin);
