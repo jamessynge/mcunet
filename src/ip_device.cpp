@@ -4,11 +4,6 @@
 // TODO(jamessynge): EthernetClass should use millis() and a static var to
 // decide whether it has been long enough since power-up or hard-reset so that
 // we can rely on the chip being ready to work.
-//
-// TODO(jamessynge): Add some means of testing whether there is an Ethernet
-// cable attached. In the not, or in the event that DHCP doesn't work, we may
-// want to keep trying to initialize the networking from the main loop, at least
-// until we see some traffic.
 
 #include "ip_device.h"
 
@@ -22,6 +17,7 @@
 namespace mcunet {
 namespace {
 
+constexpr uint8_t kNoSuchPin = 255;
 constexpr uint8_t kW5500ChipSelectPin = 10;
 constexpr uint8_t kW5500ResetPin = 7;
 constexpr uint8_t kSDcardSelectPin = 4;
@@ -39,30 +35,78 @@ void Mega2560Eth::SetupW5500(uint8_t max_sock_num) {
   digitalWrite(kSDcardSelectPin, HIGH);
 
   // Configure Ethernet5500's EthernetClass instance with the pins used to
-  // access the WIZnet W5500.
+  // access the WIZnet W5500. Note that the reset pin is only used by methods
+  // Ethernet::setRstPin and Ethernet::hardreset, so if the W5500's reset pin
+  // isn't connected to a pin of the microcontroller, just don't call hardreset.
   Ethernet.setRstPin(kW5500ResetPin);
   Ethernet.setCsPin(kW5500ChipSelectPin);
-
-  // If there has been a crash and restart of the ATmega, I've found that the
-  // networking seems to be broken, so doing a hard reset explicitly so that we
-  // always act more like a power-up situation.
-  MCU_VLOG(3) << MCU_PSD("hardreset");
-  Ethernet.hardreset();
 
   // For now use all of the allowed sockets. Need to have at least one UDP
   // socket, and maybe more; our UDP uses include DHCP lease & lease renewal,
   // the Alpaca discovery protocol, and possibly for time. Then we need at least
   // one TCP socket, more if we want to handle multiple simultaneous requests.
-  MCU_VLOG(3) << MCU_PSD("init");
   Ethernet.init(max_sock_num);
 
-  // Used to call Ethernet.softreset() here, in an attempt to deal with the hard
-  // reset above not working (e.g. when the jumper/solder bridge is not present
-  // to connect the reset W5500 reset pin to the kW5500ResetPin, an AVR GPIO
-  // pin). However I found that this would sometimes hang, so not worth the
-  // risk.
+  if (kW5500ResetPin != kNoSuchPin) {
+    // If there has been a crash and restart of the ATmega, I've found that the
+    // networking seems to be broken, so doing a hard reset explicitly so that
+    // we always act more like a power-up situation.
+    MCU_VLOG(3) << MCU_PSD("hardreset");
+    Ethernet.hardreset();
+  }
+
   MCU_VLOG(3) << MCU_PSD("SetupW5500 Exit");
 }
+
+namespace {
+
+// Perform a softreset of the W5500 (repeatedly), returning once Ethernet link
+// is operating.
+//
+// NOTE: For my current applications, there is no point in starting the device
+// without a working Ethernet link, so stalling here is fine. That might not
+// always be the case.
+//
+// The Robotdyn Mega ETH board has an optional solder bridge between the W5500
+// reset pin and the AVR microcontroller, so the hardreset above only works if
+// that solder bridge has been "filled in", and there isn't a good way to check
+// for that, so we need to combine the hard reset above with the soft reset
+// here.
+void SoftResetUntilLinked(const Addresses& addresses) {
+  // Before we can call Ethernet.softreset(), we first need to call one of the
+  // overloads of Ethernet.begin(). The one used here has the benefit that it
+  // doesn't cause EthernetClass::_dhcp to be accessed or initialized.  We
+  // pass placeholder values (0.0.0.0) for all the IP addresses, as the only
+  // thing we're really trying to achieve here is having w5500.init() called,
+  // which initializes the SPI chip select pin for the W5500, which is
+  // necessary before softreset is called, as that does an SPI transaction. Note
+  // that begin() performs several SPI transactions, and those can hang if the
+  // the chip select pin is wrong, though maybe only if a SPI read transaction
+  // is executed, and I don't think that happens with this overload of begin()
+  // used here.
+  MCU_VLOG(1) << MCU_PSD("SoftResetUntilLinked begin");
+  Ethernet.begin(addresses.ethernet.bytes, /*local_ip*/ IPAddress(),
+                 /*subnet=*/IPAddress(), /*gateway=*/IPAddress(),
+                 /*dns_server=*/IPAddress());
+
+  MCU_VLOG(1) << MCU_PSD("W5500 softreset");
+  while (true) {
+    // Soft reset initializes all the internal registers of the W5500, which
+    // should be just as if it was powered up.
+    Ethernet.softreset();
+
+    for (int i = 0; i < 10000; ++i) {
+      if (Ethernet.link()) {
+        MCU_VLOG(1) << MCU_PSD("Ethernet link detected");
+        return;
+      }
+      delay(/*ms=*/1);
+    }
+    MCU_VLOG(3) << MCU_PSD("No ") << MCU_PSD("Ethernet link detected");
+  }
+}
+
+}  // namespace
 
 mcucore::Status IpDevice::InitializeNetworking(
     mcucore::EepromTlv& eeprom_tlv, const OuiPrefix* const oui_prefix) {
@@ -87,27 +131,12 @@ mcucore::Status IpDevice::InitializeNetworking(
     }
   }
 
-  // If unable to get an address using DHCP, try again with a softReset
-  // between the two attempts.
+  SoftResetUntilLinked(addresses);
+
+  // Try to use DHCP to get info about the local subnet and to be assigned an IP
+  // address.
   Ethernet.setDhcp(&dhcp);
   using_dhcp_ = Ethernet.begin(addresses.ethernet.bytes);
-  if (!using_dhcp_ && false) {
-    MCU_VLOG(1) << MCU_PSD("Failed to get an address using DHCP");
-    // TODO(jamessynge): First check whether there is an Ethernet cable
-    // attached; if not, then we don't benefit from a retry. Instead, we can
-    // check whether a cable is attached later in the main loop. This may
-    // require splitting TinyAlpacaServer::initialize into two parts: one for
-    // the networking hardware, repeated as necessary, and another (once only)
-    // for the Alpaca devices (but not the Alpaca network servers). OR just loop
-    // here indefinitely, waiting for the network cable to be attached.
-    Ethernet.softreset();
-    MCU_VLOG(1) << MCU_PSD("softreset complete");
-    using_dhcp_ = Ethernet.begin(addresses.ethernet.bytes);
-    if (!using_dhcp_) {
-      MCU_VLOG(1) << MCU_PSD("Failed to get an address using DHCP")
-                  << MCU_PSD(" after a soft reset.");
-    }
-  }
 
   if (!using_dhcp_) {
     // Is there hardware? If there is, we should be able to read our MAC address

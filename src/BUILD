@@ -86,11 +86,14 @@ arduino_cc_library(
         ":ethernet_address",
         ":ip_address",
         ":platform_network",
+        "//mcucore/src:mcucore_platform",
         "//mcucore/src/eeprom:eeprom_tlv",
         "//mcucore/src/log",
         "//mcucore/src/log:log_sink",
         "//mcucore/src/status",
+        "//mcucore/src/strings:progmem_string_data",
         "//mcucore/src/strings:progmem_string_view",
+        "//mcunet/extras/host/ethernet5500:ethernet_class",
     ],
 )
 
