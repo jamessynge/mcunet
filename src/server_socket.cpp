@@ -3,7 +3,9 @@
 #include <McuCore.h>
 
 #include "platform_network.h"
+#include "socket_listener.h"
 #include "tcp_server_connection.h"
+#include "w5500_enum_names.h"
 
 namespace mcunet {
 namespace {
@@ -85,25 +87,26 @@ void ServerSocket::SocketLost() {
   disconnect_data_.RecordDisconnect();
 }
 
-#define STATUS_IS_UNEXPECTED_MESSAGE(expected_str, some_status,     \
-                                     current_status)                \
-  mcucore::BaseHex << MCU_PSD("Expected " #some_status " to be ")   \
-                   << MCU_PSD(expected_str) << MCU_PSD(", but is ") \
-                   << mcucore::BaseHex << some_status               \
-                   << MCU_PSD("; current status is ") << current_status
+#define STATUS_IS_UNEXPECTED_MESSAGE(expected_str, some_status,                \
+                                     current_status)                           \
+  mcucore::BaseHex << MCU_PSD("Expected " #some_status " to be ")              \
+                   << MCU_PSD(expected_str) << MCU_PSD(", but is ")            \
+                   << SnSRName(some_status) << MCU_PSD("; current status is ") \
+                   << SnSRName(current_status)
 
-#define VERIFY_STATUS_IS(expected_status, some_status)                   \
-  MCU_DCHECK_EQ(expected_status, some_status)                            \
-      << mcucore::BaseHex << MCU_PSD("Expected " #some_status " to be ") \
-      << expected_status << MCU_PSD(", but is ") << some_status
+#define VERIFY_STATUS_IS(expected_status, some_status)     \
+  MCU_DCHECK_EQ(expected_status, some_status)              \
+      << MCU_PSD("Expected " #some_status " to be ")       \
+      << SnSRName(expected_status) << MCU_PSD(", but is ") \
+      << SnSRName(some_status)
 
 bool ServerSocket::BeginListening() {
   if (!HasSocket()) {
     return false;
   } else if (tcp_port_ == PlatformNetwork::SocketIsTcpListener(sock_num_)) {
     // Already listening.
-    MCU_VLOG(1) << MCU_PSD("Already listening, last_status_ is ")
-                << mcucore::BaseHex << last_status_;
+    MCU_VLOG(1) << MCU_PSD("Already listening,") << MCU_PSD(" last_status_=")
+                << SnSRName(last_status_);
     last_status_ = PlatformNetwork::SocketStatus(sock_num_);
     return true;
   } else if (IsConnected()) {
@@ -116,8 +119,7 @@ bool ServerSocket::BeginListening() {
     last_status_ = PlatformNetwork::SocketStatus(sock_num_);
     MCU_VLOG(1) << MCU_PSD("Listening to port ") << tcp_port_
                 << MCU_PSD(" on socket ") << sock_num_
-                << MCU_PSD(", last_status is ") << mcucore::BaseHex
-                << last_status_;
+                << MCU_PSD(" last_status=") << SnSRName(last_status_);
     VERIFY_STATUS_IS(SnSR::LISTEN, last_status_);
     return true;
   }
@@ -143,15 +145,15 @@ void ServerSocket::PerformIO() {
   }
   const auto status = PlatformNetwork::SocketStatus(sock_num_);
   const bool is_open = PlatformNetwork::StatusIsOpen(status);
-  const auto past_status = last_status_;
-  const bool was_open = PlatformNetwork::StatusIsOpen(past_status);
 
   if (status != last_status_) {
-    MCU_VLOG(3) << MCU_PSD("socket ") << sock_num_ << MCU_PSD(" past_status=")
-                << mcucore::BaseHex << past_status << MCU_PSD(" status=")
-                << status;
+    MCU_VLOG(3) << MCU_PSD("socket ") << sock_num_ << MCU_PSD(" last_status_=")
+                << SnSRName(last_status_) << MCU_PSD(" status=")
+                << SnSRName(status);
   }
 
+  const auto past_status = last_status_;
+  const bool was_open = PlatformNetwork::StatusIsOpen(past_status);
   last_status_ = status;
 
   if (was_open && !is_open) {
@@ -185,7 +187,6 @@ void ServerSocket::PerformIO() {
       //
       // To keep the debug macros in the following states simple, we overwrite
       // last_status_ here.
-      MCU_VLOG(3) << MCU_PSD("SnSR::SYNRECV");
       VERIFY_STATUS_IS(SnSR::LISTEN, past_status);
       last_status_ = SnSR::LISTEN;
       break;
@@ -234,7 +235,7 @@ void ServerSocket::PerformIO() {
       MCU_DCHECK(false) << MCU_PSD(
                                "Socket in INIT state, incomplete LISTEN setup; "
                                "past_status is ")
-                        << past_status;
+                        << SnSRName(past_status);
       if (past_status == SnSR::INIT) {
         // Apparently stuck in this state.
         CloseHardwareSocket();
@@ -329,8 +330,8 @@ void ServerSocket::DetectListenerInitiatedDisconnect() {
   if (disconnect_data_.disconnected) {
     auto new_status = PlatformNetwork::SocketStatus(sock_num_);
     MCU_VLOG(2) << MCU_PSD("DetectListenerInitiatedDisconnect")
-                << mcucore::BaseHex << MCU_NAME_VAL(last_status_)
-                << MCU_NAME_VAL(new_status);
+                << MCU_PSD(" last_status_=") << SnSRName(last_status_)
+                << " new_status=" << SnSRName(new_status);
     last_status_ = new_status;
   }
 }
@@ -345,8 +346,8 @@ void ServerSocket::DetectCloseTimeout() {
 }
 
 void ServerSocket::CloseHardwareSocket() {
-  MCU_VLOG(2) << MCU_PSD("CloseHardwareSocket") << mcucore::BaseHex
-              << MCU_NAME_VAL(last_status_);
+  MCU_VLOG(2) << MCU_PSD("CloseHardwareSocket") << MCU_PSD(" last_status_=")
+              << SnSRName(last_status_);
   PlatformNetwork::CloseSocket(sock_num_);
   last_status_ = PlatformNetwork::SocketStatus(sock_num_);
   MCU_DCHECK_EQ(last_status_, SnSR::CLOSED);

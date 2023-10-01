@@ -9,7 +9,7 @@
 
 #include <McuCore.h>  // IWYU pragma: export
 
-#include "platform_network_interface.h"
+#include "platform_network_interface.h"  // IWYU pragma: keep
 
 #ifdef ARDUINO
 
