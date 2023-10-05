@@ -304,7 +304,6 @@ void ServerSocket::AnnounceCanRead() {
 }
 
 void ServerSocket::HandleCloseWait() {
-  MCU_VLOG(3) << MCU_PSD("AnnounceConnected");
   EthernetClient client(sock_num_);
   uint8_t write_buffer[kWriteBufferSize];
   TcpServerConnection conn(write_buffer, kWriteBufferSize, client,
@@ -315,8 +314,10 @@ void ServerSocket::HandleCloseWait() {
     // TODO(jamessynge): Determine whether we get the CLOSE_WAIT state before
     // we've read all the data from the client, or only once we've drained those
     // buffers.
+    MCU_VLOG(2) << MCU_PSD("HandleCloseWait ") << MCU_PSD("-> OnCanRead");
     listener_.OnCanRead(conn);
   } else {
+    MCU_VLOG(2) << MCU_PSD("HandleCloseWait ") << MCU_PSD("-> OnHalfClosed");
     listener_.OnHalfClosed(conn);
     MCU_VLOG(2) << MCU_PSD("HandleCloseWait ") << MCU_PSD("disconnected=")
                 << disconnect_data_.disconnected;
