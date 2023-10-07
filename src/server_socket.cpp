@@ -308,13 +308,15 @@ void ServerSocket::HandleCloseWait() {
   uint8_t write_buffer[kWriteBufferSize];
   TcpServerConnection conn(write_buffer, kWriteBufferSize, client,
                            disconnect_data_);
-  if (client.available() > 0) {
+  const auto available = client.available();
+  if (available > 0) {
     // Still have data that we can read from the client (i.e. buffered up in the
     // network chip).
     // TODO(jamessynge): Determine whether we get the CLOSE_WAIT state before
     // we've read all the data from the client, or only once we've drained those
     // buffers.
-    MCU_VLOG(2) << MCU_PSD("HandleCloseWait ") << MCU_PSD("-> OnCanRead");
+    MCU_VLOG(2) << MCU_PSD("HandleCloseWait ") << MCU_PSD("-> OnCanRead ")
+                << available;
     listener_.OnCanRead(conn);
   } else {
     MCU_VLOG(2) << MCU_PSD("HandleCloseWait ") << MCU_PSD("-> OnHalfClosed");
