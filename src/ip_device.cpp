@@ -72,24 +72,9 @@ namespace {
 // that solder bridge has been "filled in", and there isn't a good way to check
 // for that, so we need to combine the hard reset above with the soft reset
 // here.
-void SoftResetUntilLinked(const Addresses& addresses) {
-  // Before we can call Ethernet.softreset(), we first need to call one of the
-  // overloads of Ethernet.begin(). The one used here has the benefit that it
-  // doesn't cause EthernetClass::_dhcp to be accessed or initialized.  We
-  // pass placeholder values (0.0.0.0) for all the IP addresses, as the only
-  // thing we're really trying to achieve here is having w5500.init() called,
-  // which initializes the SPI chip select pin for the W5500, which is
-  // necessary before softreset is called, as that does an SPI transaction. Note
-  // that begin() performs several SPI transactions, and those can hang if the
-  // the chip select pin is wrong, though maybe only if a SPI read transaction
-  // is executed, and I don't think that happens with this overload of begin()
-  // used here.
-  MCU_VLOG(1) << MCU_PSD("SoftResetUntilLinked begin");
-  Ethernet.begin(addresses.ethernet.bytes, /*local_ip*/ IPAddress(),
-                 /*subnet=*/IPAddress(), /*gateway=*/IPAddress(),
-                 /*dns_server=*/IPAddress());
+void SoftResetUntilLinked() {
+  MCU_VLOG(1) << MCU_PSD("SoftResetUntilLinked ENTER");
 
-  MCU_VLOG(1) << MCU_PSD("W5500 softreset");
   while (true) {
     // Soft reset initializes all the internal registers of the W5500, which
     // should be just as if it was powered up.
@@ -131,10 +116,13 @@ mcucore::Status IpDevice::InitializeNetworking(
     }
   }
 
-  SoftResetUntilLinked(addresses);
+  SoftResetUntilLinked();
 
   // Try to use DHCP to get info about the local subnet and to be assigned an IP
-  // address.
+  // address. We specify our own (statically allocated) instance of DhcpClass so
+  // that dynamic allocation (i.e. new DhcpClass()) is not executed by begin();
+  // we aim to avoid dynamic allocation as much as possible, except temporarily
+  // in the form of stack variables.
   Ethernet.setDhcp(&dhcp);
   using_dhcp_ = Ethernet.begin(addresses.ethernet.bytes);
 
