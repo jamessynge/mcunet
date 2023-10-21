@@ -21,7 +21,7 @@ cc_library(
         ":ethernet_server",
         ":ethernet_udp",
         ":w5500",
-        "//mcunet/extras/host/arduino:ip_address",
+        "//mcucore/extras/host/arduino:ip_address",
     ],
 )
 
@@ -34,7 +34,7 @@ cc_library(
         ":ethernet_config",
         "//absl/log",
         "//absl/log:check",
-        "//mcunet/extras/host/arduino:ip_address",
+        "//mcucore/extras/host/arduino:ip_address",
         "//mcunet/src:platform_network_interface",
     ],
 )
@@ -47,8 +47,8 @@ cc_library(
         ":w5500",
         "//absl/log",
         "//absl/log:check",
-        "//mcunet/extras/host/arduino:client",
-        "//mcunet/extras/host/arduino:ip_address",
+        "//mcucore/extras/host/arduino:client",
+        "//mcucore/extras/host/arduino:ip_address",
         "//mcunet/src:platform_network_interface",
     ],
 )
@@ -78,8 +78,8 @@ cc_library(
     srcs = ["ethernet_udp.cc"],
     hdrs = ["ethernet_udp.h"],
     deps = [
+        "//mcucore/extras/host/arduino:ip_address",
         "//mcucore/extras/host/arduino:stream",
-        "//mcunet/extras/host/arduino:ip_address",
     ],
 )
 

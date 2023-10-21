@@ -6,9 +6,9 @@
 
 #include <stdint.h>
 
-#include "extras/host/arduino/ip_address.h"  // IWYU pragma: export
 #include "extras/host/ethernet5500/dhcp_class.h"
 #include "extras/host/ethernet5500/ethernet_config.h"
+#include "mcucore/extras/host/arduino/ip_address.h"  // IWYU pragma: export
 
 class EthernetClass {
  public:

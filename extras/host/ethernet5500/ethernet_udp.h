@@ -8,7 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "extras/host/arduino/ip_address.h"
+#include "mcucore/extras/host/arduino/ip_address.h"
 #include "mcucore/extras/host/arduino/stream.h"
 
 class EthernetUDP : public Stream {

@@ -12,8 +12,8 @@
 #include <array>
 #include <limits>
 
-#include "extras/host/arduino/client.h"
 #include "gtest/gtest.h"
+#include "mcucore/extras/host/arduino/client.h"
 #include "write_buffered_connection.h"
 
 namespace mcunet {

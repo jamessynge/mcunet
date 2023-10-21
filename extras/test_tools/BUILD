@@ -19,7 +19,7 @@ cc_library(
     hdrs = ["fake_write_buffered_connection.h"],
     deps = [
         "//googletest:gunit_headers",
-        "//mcunet/extras/host/arduino:client",
+        "//mcucore/extras/host/arduino:client",
         "//mcunet/src:write_buffered_connection",
     ],
 )
@@ -29,8 +29,8 @@ cc_library(
     hdrs = ["mock_client.h"],
     deps = [
         "//googletest:gunit_headers",
-        "//mcunet/extras/host/arduino:client",
-        "//mcunet/extras/host/arduino:ip_address",
+        "//mcucore/extras/host/arduino:client",
+        "//mcucore/extras/host/arduino:ip_address",
     ],
 )
 
@@ -39,7 +39,7 @@ cc_library(
     hdrs = ["mock_ethernet_client.h"],
     deps = [
         "//googletest:gunit_headers",
-        "//mcunet/extras/host/arduino:ip_address",
+        "//mcucore/extras/host/arduino:ip_address",
         "//mcunet/extras/host/ethernet5500:ethernet_client",
     ],
 )
@@ -49,7 +49,7 @@ cc_library(
     hdrs = ["mock_ethernet_udp.h"],
     deps = [
         "//googletest:gunit_headers",
-        "//mcunet/extras/host/arduino:ip_address",
+        "//mcucore/extras/host/arduino:ip_address",
         "//mcunet/extras/host/ethernet5500:ethernet_udp",
     ],
 )
@@ -78,8 +78,8 @@ cc_library(
     name = "string_io_stream_impl",
     hdrs = ["string_io_stream_impl.h"],
     deps = [
+        "//mcucore/extras/host/arduino:client",
         "//mcucore/extras/host/arduino:stream",
-        "//mcunet/extras/host/arduino:client",
         "//mcunet/src:connection",
     ],
 )

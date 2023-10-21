@@ -9,9 +9,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "extras/host/arduino/client.h"
-#include "extras/host/arduino/ip_address.h"
 #include "extras/host/ethernet5500/w5500.h"  // IWYU pragma: export
+#include "mcucore/extras/host/arduino/client.h"
+#include "mcucore/extras/host/arduino/ip_address.h"
 
 class EthernetClient : public Client {
  public:

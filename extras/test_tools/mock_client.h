@@ -16,9 +16,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "extras/host/arduino/client.h"
-#include "extras/host/arduino/ip_address.h"
 #include "gmock/gmock.h"
+#include "mcucore/extras/host/arduino/client.h"
+#include "mcucore/extras/host/arduino/ip_address.h"
 
 namespace mcunet {
 namespace test {

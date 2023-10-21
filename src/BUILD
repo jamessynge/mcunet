@@ -135,11 +135,11 @@ arduino_cc_library(
     ],
     deps = [
         ":platform_network_interface",
+        "//mcucore/extras/host/arduino:client",
+        "//mcucore/extras/host/arduino:ip_address",
         "//mcucore/src:mcucore_platform",
         "//mcucore/src/log",
         "//mcucore/src/strings:progmem_string_data",
-        "//mcunet/extras/host/arduino:client",
-        "//mcunet/extras/host/arduino:ip_address",
         "//mcunet/extras/host/ethernet5500",
     ],
 )
@@ -198,8 +198,8 @@ arduino_cc_library(
     hdrs = ["write_buffered_connection.h"],
     deps = [
         ":connection",
+        "//mcucore/extras/host/arduino:client",
         "//mcucore/src/log",
         "//mcucore/src/strings:progmem_string_data",
-        "//mcunet/extras/host/arduino:client",
     ],
 )
