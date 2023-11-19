@@ -29,9 +29,9 @@
 // elsewhere, but it is a bit excessive. As I improve the
 // implementation-independent networking API, I hope to reduce the number of
 // these includes.
-#include "extras/host/ethernet5500/ethernet5500.h"   // IWYU pragma: export
-#include "mcucore/extras/host/arduino/client.h"      // IWYU pragma: export
-#include "mcucore/extras/host/arduino/ip_address.h"  // IWYU pragma: export
+#include <Client.h>        // IWYU pragma: export
+#include <Ethernet5500.h>  // IWYU pragma: export
+#include <IPAddress.h>     // IWYU pragma: export
 
 #endif  // ARDUINO
 

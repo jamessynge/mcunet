@@ -8,7 +8,7 @@
 //
 // Author: james.synge@gmail.com
 
-#include <Stream.h>
+#include <Stream.h>  // pragma: keep extras include
 #include <stddef.h>
 
 #include "platform_network.h"

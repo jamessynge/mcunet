@@ -14,7 +14,7 @@
 //
 // Author: james.synge@gmail.com
 
-#include <Client.h>
+#include <Client.h>  // pragma: keep extras include
 #include <stddef.h>
 #include <stdint.h>
 
